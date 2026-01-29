@@ -18,18 +18,16 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.0'
-          channel: 'stable'
 
-      - name: Create Missing Files
+      - name: Auto-Generate Android Skeleton
         run: |
-          mkdir -p android/app
-          echo "include ':app'" > android/settings.gradle
+          # یہ کمانڈ خود بخود غائب فائلیں بنا دے گی
+          flutter create . --platforms android
           
-      - name: Get Packages
+      - name: Restore dependencies
         run: flutter pub get
 
       - name: Build APK
-        # یہ کمانڈ سائز کو 5MB تک محدود رکھے گی
         run: flutter build apk --release --split-per-abi
 
       - name: Upload APK
