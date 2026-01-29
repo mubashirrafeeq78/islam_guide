@@ -1,4 +1,4 @@
-          name: Automated One-File Build
+name: Automated One-File Build
 on:
   push:
     branches: [ main ]
@@ -24,16 +24,11 @@ jobs:
 
       - name: Auto-Generate Project and Build
         run: |
-          # 1. فلٹر پروجیکٹ کا ڈھانچہ تیار کریں
           flutter create --project-name=islam_guide --platforms=android .
-          
-          # 2. ویب ویو کی لائبریری شامل کریں
           flutter pub add webview_flutter
           
-          # 3. مین ایپ کوڈ تیار کریں
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
-          import 'package:webview_flutter/webview_flutter.code';
           import 'package:webview_flutter/webview_flutter.dart';
           void main() => runApp(const MaterialApp(home: Scaffold(body: SafeArea(child: AppBody())), debugShowCheckedModeBanner: false));
           class AppBody extends StatefulWidget {
@@ -57,10 +52,7 @@ jobs:
           }
           EOF
 
-          # 4. انٹرنیٹ کی پرمیشن سیٹ کریں
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
-
-          # 5. اے پی کے (APK) بنائیں
           flutter build apk --release --split-per-abi
 
       - name: Upload APK
