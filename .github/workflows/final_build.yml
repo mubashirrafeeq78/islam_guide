@@ -1,4 +1,4 @@
-name: Final-Smart-Build
+name: Final-Fix-Build
 on:
   workflow_dispatch:
 
@@ -16,20 +16,27 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
+
       - name: Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.0'
 
-      - name: Force Create & Build
+      - name: Force Fix & Build
         run: |
-          # پروجیکٹ کو دوبارہ سے بنانا (اگر فائلیں نہیں ہیں)
-          flutter create --project-name=masail_ka_hal --platforms=android .
+          # 1. اگر فائلیں نہیں ہیں تو دوبارہ بنائیں
+          flutter create --project-name=masail_ka_hal --platforms=android . || true
           
-          # اینڈرائیڈ بلڈ کی اجازت دینا
-          chmod +x android/gradlew
+          # 2. اینڈرائیڈ لائسنس قبول کرنا (یہ سب سے اہم ہے)
+          yes | flutter doctor --android-licenses || true
           
-          # اے پی کے بنانا
+          # 3. بلڈ فائلز کو درست کرنا
+          cd android
+          chmod +x gradlew
+          ./gradlew clean
+          cd ..
+          
+          # 4. اے پی کے بنانا
           flutter pub get
           flutter build apk --release --split-per-abi
 
