@@ -1,10 +1,12 @@
-name: Final-APK-Generator
+name: Final-Smart-Build
 on:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -19,8 +21,19 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Fix Permissions & Build
+      - name: Ensure Files Exist & Build
         run: |
+          # اگر android فولڈر غائب ہے تو اسے دوبارہ بنائیں
+          if [ ! -d "android" ]; then
+            flutter create --project-name=masail_ka_hal --platforms=android .
+            git config --global user.email "action@github.com"
+            git config --global user.name "Fixer Bot"
+            git add .
+            git commit -m "Emergency: Re-creating missing files"
+            git push
+          fi
+          
+          # اب بلڈ شروع کریں
           chmod +x android/gradlew
           flutter pub get
           flutter build apk --release --split-per-abi
@@ -28,5 +41,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-App
+          name: Masail-ka-Hal-Final
           path: build/app/outputs/flutter-apk/*.apk
