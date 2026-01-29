@@ -1,0 +1,24 @@
+name: 1-Create-Project-Structure
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+      - name: Initialize Professional Code
+        run: |
+          flutter create --project-name=masail_ka_hal --platforms=android .
+          sed -i 's/android:label="masail_ka_hal"/android:label="Masail ka Hal"/' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git add .
+          git commit -m "Permanent Source Code Added"
+          git push
