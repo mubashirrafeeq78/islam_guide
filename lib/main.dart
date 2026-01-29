@@ -29,16 +29,14 @@ class _AppBodyState extends State<AppBody> {
 
   @override
   Widget build(BuildContext context) {
-    // PopScope بیک بٹن کو کنٹرول کرتا ہے
     return PopScope(
-      canPop: false, // خود بخود بند ہونے سے روکتا ہے
+      canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
         if (await controller.canGoBack()) {
-          controller.goBack(); // اگر ہسٹری ہے تو پیچھے جائے گا
+          controller.goBack();
         } else {
-          // اگر ڈیش بورڈ پر ہے اور پیچھے کچھ نہیں، تو ایپ بند ہو جائے گی
-          if (context.mounted) Navigator.of(context).pop(); 
+          if (context.mounted) Navigator.of(context).pop();
         }
       },
       child: Scaffold(
