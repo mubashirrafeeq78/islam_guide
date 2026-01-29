@@ -1,0 +1,44 @@
+name: Master-App-Engine
+on:
+  workflow_dispatch:
+
+jobs:
+  build_everything:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java & Flutter
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - name: Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+
+      - name: Create Full Professional Project
+        run: |
+          # 1. ایک نیا پروفیشنل پروجیکٹ بنانا
+          flutter create --project-name=my_auto_app --platforms=android .
+          
+          # 2. انٹرنیٹ کی اجازت شامل کرنا (Security & Connectivity)
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          
+          # 3. سورس کوڈ کو مستقل محفوظ کرنا (تاکہ آپ اسے بعد میں ایڈٹ کر سکیں)
+          git config --global user.email "dev@github.com"
+          git config --global user.name "App Master Engine"
+          git add .
+          git commit -m "Full Source Code Generated Successfully" || true
+          git push
+
+          # 4. اے پی کے (APK) بنانا
+          flutter build apk --release --split-per-abi
+
+      - name: Upload Final APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Professional-App-Release
+          path: build/app/outputs/flutter-apk/*.apk
