@@ -1,0 +1,69 @@
+name: Automated One-File Build
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+
+      - name: Auto-Generate Project and Build
+        run: |
+          # 1. فلٹر پروجیکٹ کا ڈھانچہ تیار کریں
+          flutter create --project-name=islam_guide --platforms=android .
+          
+          # 2. ویب ویو کی لائبریری شامل کریں
+          flutter pub add webview_flutter
+          
+          # 3. مین ایپ کوڈ تیار کریں (آپ کے نئے یو آر ایل کے ساتھ)
+          cat <<EOF > lib/main.dart
+          import 'package:flutter/material.dart';
+          import 'package:webview_flutter/webview_flutter.dart';
+          void main() => runApp(const MaterialApp(home: Scaffold(body: SafeArea(child: AppBody())), debugShowCheckedModeBanner: false));
+          class AppBody extends StatefulWidget {
+            const AppBody({super.key});
+            @override
+            State<AppBody> createState() => _AppBodyState();
+          }
+          class _AppBodyState extends State<AppBody> {
+            late final WebViewController controller;
+            @override
+            void initState() {
+              super.initState();
+              controller = WebViewController()
+                ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.html'));
+            }
+            @override
+            Widget build(BuildContext context) {
+              return WebViewWidget(controller: controller);
+            }
+          }
+          EOF
+
+          # 4. انٹرنیٹ کی پرمیشن سیٹ کریں
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+
+          # 5. اے پی کے (APK) بنائیں
+          flutter build apk --release --split-per-abi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Islam-Guide-App
+          path: build/app/outputs/flutter-apk/app-release-armeabi-v7a.apk
