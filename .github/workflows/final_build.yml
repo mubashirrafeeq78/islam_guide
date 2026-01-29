@@ -21,20 +21,15 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Ensure Files Exist & Build
+      - name: Force Create & Build
         run: |
-          # اگر android فولڈر غائب ہے تو اسے دوبارہ بنائیں
-          if [ ! -d "android" ]; then
-            flutter create --project-name=masail_ka_hal --platforms=android .
-            git config --global user.email "action@github.com"
-            git config --global user.name "Fixer Bot"
-            git add .
-            git commit -m "Emergency: Re-creating missing files"
-            git push
-          fi
+          # پروجیکٹ کو دوبارہ سے بنانا (اگر فائلیں نہیں ہیں)
+          flutter create --project-name=masail_ka_hal --platforms=android .
           
-          # اب بلڈ شروع کریں
+          # اینڈرائیڈ بلڈ کی اجازت دینا
           chmod +x android/gradlew
+          
+          # اے پی کے بنانا
           flutter pub get
           flutter build apk --release --split-per-abi
 
