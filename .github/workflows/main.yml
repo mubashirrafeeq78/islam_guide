@@ -1,4 +1,4 @@
-name: Automated One-File Build
+          name: Automated One-File Build
 on:
   push:
     branches: [ main ]
@@ -30,9 +30,10 @@ jobs:
           # 2. ویب ویو کی لائبریری شامل کریں
           flutter pub add webview_flutter
           
-          # 3. مین ایپ کوڈ تیار کریں (آپ کے نئے یو آر ایل کے ساتھ)
+          # 3. مین ایپ کوڈ تیار کریں
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
+          import 'package:webview_flutter/webview_flutter.code';
           import 'package:webview_flutter/webview_flutter.dart';
           void main() => runApp(const MaterialApp(home: Scaffold(body: SafeArea(child: AppBody())), debugShowCheckedModeBanner: false));
           class AppBody extends StatefulWidget {
@@ -66,4 +67,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Islam-Guide-App
-          path: build/app/outputs/flutter-apk/app-release-armeabi-v7a.apk
+          path: build/app/outputs/flutter-apk/*.apk
