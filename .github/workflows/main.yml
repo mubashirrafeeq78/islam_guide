@@ -1,4 +1,4 @@
-name: Automated One-File Build
+name: Professional App - Masail ka Hal
 on:
   push:
     branches: [ main ]
@@ -22,41 +22,103 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Auto-Generate Project and Build
+      - name: Auto-Generate Masail ka Hal App
         run: |
-          flutter create --project-name=islam_guide --platforms=android .
-          flutter pub add webview_flutter
+          # 1. پروجیکٹ بنانا (بشمول ایپ کا نام)
+          flutter create --project-name=masail_ka_hal --platforms=android .
           
+          # 2. ضروری لائبریریز
+          flutter pub add webview_flutter
+          flutter pub add flutter_launcher_icons
+          
+          # 3. ایپ کا نام اینڈرائیڈ لیبل میں تبدیل کرنا
+          sed -i 's/android:label="masail_ka_hal"/android:label="Masail ka Hal"/' android/app/src/main/AndroidManifest.xml
+
+          # 4. آئیکن کی سیٹنگ (اگر آپ نے icon.png اپ لوڈ کی ہے)
+          cat <<EOF > flutter_launcher_icons.yaml
+          flutter_launcher_icons:
+            android: "launcher_icon"
+            image_path: "icon.png"
+            min_sdk_android: 21
+          EOF
+
+          # 5. مین ایپ کوڈ (لوڈنگ اسپنر اور ایرر پیج کے ساتھ)
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          void main() => runApp(const MaterialApp(home: Scaffold(body: SafeArea(child: AppBody())), debugShowCheckedModeBanner: false));
+
+          void main() => runApp(const MaterialApp(home: SafeArea(child: AppBody()), debugShowCheckedModeBanner: false));
+
           class AppBody extends StatefulWidget {
             const AppBody({super.key});
             @override
             State<AppBody> createState() => _AppBodyState();
           }
+
           class _AppBodyState extends State<AppBody> {
             late final WebViewController controller;
+            bool isLoading = true;
+            bool hasError = false;
+
             @override
             void initState() {
               super.initState();
               controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..setNavigationDelegate(
+                  NavigationDelegate(
+                    onPageStarted: (url) => setState(() { isLoading = true; hasError = false; }),
+                    onPageFinished: (url) => setState(() { isLoading = false; }),
+                    onWebResourceError: (error) => setState(() { hasError = true; isLoading = false; }),
+                  ),
+                )
                 ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.html'));
             }
+
             @override
             Widget build(BuildContext context) {
-              return WebViewWidget(controller: controller);
+              return Scaffold(
+                body: Stack(
+                  children: [
+                    if (!hasError) WebViewWidget(controller: controller),
+                    if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
+                    if (hasError) _buildErrorPage(),
+                  ],
+                ),
+              );
+            }
+
+            Widget _buildErrorPage() {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.wifi_off, size: 80, color: Colors.grey),
+                    const SizedBox(height: 20),
+                    const Text("انٹرنیٹ موجود نہیں ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () => controller.reload(),
+                      child: const Text("دوبارہ کوشش کریں"),
+                    )
+                  ],
+                ),
+              );
             }
           }
           EOF
 
+          # 6. آئیکن جنریٹ کرنا (اگر تصویر موجود ہو تو یہ چلے گا ورنہ ڈیفالٹ رہے گا)
+          flutter pub run flutter_launcher_icons || true
+
+          # 7. انٹرنیٹ پرمیشن شامل کرنا
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          
+          # 8. اے پی کے بنانا
           flutter build apk --release --split-per-abi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Islam-Guide-App
+          name: Masail-ka-Hal-APK
           path: build/app/outputs/flutter-apk/*.apk
