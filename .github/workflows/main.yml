@@ -1,4 +1,4 @@
-name: Professional App - Final Fix
+name: Professional App - Final Success
 on:
   push:
     branches: [ main ]
@@ -23,13 +23,11 @@ jobs:
         with:
           flutter-version: '3.22.0'
 
-      - name: Advanced iFrame & History Fix
+      - name: Master Build
         run: |
-          # 1. پراجیکٹ دوبارہ ترتیب دینا
           flutter create --project-name=masail_ka_hal --platforms=android . || true
           flutter pub add webview_flutter || true
           
-          # 2. مین کوڈ (Navigation History Clear Logic کے ساتھ)
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:flutter/services.dart';
@@ -53,11 +51,7 @@ jobs:
               controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setNavigationDelegate(NavigationDelegate(
-                  onPageStarted: (url) {
-                    setState(() { isLoading = true; hasError = false; });
-                    // ہر بار نیا پیج شروع ہونے پر پرانی ہسٹری کو پس منظر میں صاف کرنا
-                    controller.clearHistory();
-                  },
+                  onPageStarted: (url) => setState(() { isLoading = true; hasError = false; }),
                   onPageFinished: (url) => setState(() { isLoading = false; }),
                   onWebResourceError: (error) => setState(() => hasError = true),
                 ))
@@ -70,13 +64,10 @@ jobs:
                 canPop: false,
                 onPopInvoked: (didPop) async {
                   if (didPop) return;
-                  
-                  // ہم صرف فریم کے اندرونی لنکس کے لیے بیک استعمال کریں گے
-                  // لیکن مینو (Dashboard) کی ہسٹری کو نظر انداز کریں گے
-                  if (await controller.canGoBack()) {
-                    controller.goBack();
+                  final Object result = await controller.runJavaScriptReturningResult("window.history.length > 1");
+                  if (result.toString() == 'true') {
+                    controller.runJavaScript("window.history.back();");
                   } else {
-                    // اگر مزید پیچھے جانے کی گنجائش نہیں تو فوری ایگزٹ
                     SystemChannels.platform.invokeMethod('SystemNavigator.pop');
                   }
                 },
@@ -117,7 +108,6 @@ jobs:
           }
           EOF
 
-          # 3. اینڈرائیڈ پرمیشنز اور بلڈ
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
           cd android && chmod +x gradlew && ./gradlew clean && cd ..
           flutter build apk --release --split-per-abi
@@ -125,5 +115,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-PHP-Version
+          name: Masail-ka-Hal-Final-APK
           path: build/app/outputs/flutter-apk/*.apk
