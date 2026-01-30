@@ -1,4 +1,4 @@
-name: Professional App - Final Fix
+name: Professional App - Final
 on:
   push:
     branches: [ main ]
@@ -23,27 +23,116 @@ jobs:
         with:
           flutter-version: '3.22.0'
 
-      - name: Master Repair & Build
+      - name: Master Build
         run: |
-          # 1. پراجیکٹ کی فائلوں کو دوبارہ درست ترتیب دینا
+          # 1. اگر فائلیں نہیں ہیں تو پروجیکٹ بنائیں
           flutter create --project-name=masail_ka_hal --platforms=android . || true
           
-          # 2. ضروری پیکیجز شامل کرنا
-          flutter pub add webview_flutter || true
+          # 2. پیکیجز شامل کرنا
+          flutter pub add webview_flutter flutter_launcher_icons || true
           
-          # 3. اینڈرائیڈ لائسنس اور پرمیشن فکس
-          yes | flutter doctor --android-licenses || true
-          cd android
-          chmod +x gradlew
-          ./gradlew clean
-          cd ..
+          # 3. مین کوڈ (iFrame ہسٹری اور خوبصورت ایرر پیج کے ساتھ)
+          cat <<EOF > lib/main.dart
+          import 'package:flutter/material.dart';
+          import 'package:flutter/services.dart';
+          import 'package:webview_flutter/webview_flutter.dart';
+
+          void main() => runApp(const MaterialApp(home: SafeArea(child: AppBody()), debugShowCheckedModeBanner: false));
+
+          class AppBody extends StatefulWidget {
+            const AppBody({super.key});
+            @override State<AppBody> createState() => _AppBodyState();
+          }
+
+          class _AppBodyState extends State<AppBody> {
+            late final WebViewController controller;
+            bool isLoading = true;
+            bool hasError = false;
+
+            @override
+            void initState() {
+              super.initState();
+              controller = WebViewController()
+                ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..setNavigationDelegate(NavigationDelegate(
+                  onPageStarted: (url) => setState(() { isLoading = true; hasError = false; }),
+                  onPageFinished: (url) => setState(() { isLoading = false; }),
+                  onWebResourceError: (error) => setState(() => hasError = true),
+                ))
+                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.html'));
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return PopScope(
+                canPop: false,
+                onPopInvoked: (didPop) async {
+                  if (didPop) return;
+                  // iFrame ہسٹری چیک کرنے کا خفیہ جاوا اسکرپٹ طریقہ
+                  final Object result = await controller.runJavaScriptReturningResult("window.history.length > 1");
+                  if (result.toString() == 'true') {
+                    controller.runJavaScript("window.history.back();");
+                  } else {
+                    SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+                  }
+                },
+                child: Scaffold(
+                  backgroundColor: Colors.white,
+                  body: Stack(
+                    children: [
+                      if (!hasError) WebViewWidget(controller: controller),
+                      if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
+                      if (hasError) _buildErrorUI(),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            Widget _buildErrorUI() {
+              return Container(
+                color: Colors.white,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.wifi_off_rounded, size: 80, color: Colors.green),
+                      const SizedBox(height: 20),
+                      const Text("انٹرنیٹ موجود نہیں ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 30),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                        onPressed: () => controller.reload(),
+                        child: const Text("دوبارہ کوشش کریں"),
+                      )
+                    ],
+                  ),
+                ),
+              );
+            }
+          }
+          EOF
+
+          # 4. آئیکن فکس
+          cat <<EOF > flutter_launcher_icons.yaml
+          flutter_launcher_icons:
+            android: "launcher_icon"
+            image_path: "icon.png"
+          EOF
+          flutter pub run flutter_launcher_icons || true
+
+          # 5. پش اور بلڈ
+          git config --global user.email "bot@github.com"
+          git config --global user.name "Professional-Bot"
+          git add .
+          git commit -m "Final professional version with iFrame fix"
+          git push origin main || true
           
-          # 4. اے پی کے بنانا
-          flutter pub get
+          cd android && chmod +x gradlew && ./gradlew clean && cd ..
           flutter build apk --release --split-per-abi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Fixed-APK
+          name: Masail-ka-Hal-Final-APK
           path: build/app/outputs/flutter-apk/*.apk
