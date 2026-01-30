@@ -1,4 +1,4 @@
-name: Professional App - Final Success
+name: Professional App - Exit Fix
 on:
   push:
     branches: [ main ]
@@ -44,6 +44,8 @@ jobs:
             late final WebViewController controller;
             bool isLoading = true;
             bool hasError = false;
+            // آپ کا مین ڈیش بورڈ لنک
+            final String mainUrl = 'https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php';
 
             @override
             void initState() {
@@ -55,7 +57,7 @@ jobs:
                   onPageFinished: (url) => setState(() { isLoading = false; }),
                   onWebResourceError: (error) => setState(() => hasError = true),
                 ))
-                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
+                ..loadRequest(Uri.parse(mainUrl));
             }
 
             @override
@@ -64,11 +66,16 @@ jobs:
                 canPop: false,
                 onPopInvoked: (didPop) async {
                   if (didPop) return;
-                  final Object result = await controller.runJavaScriptReturningResult("window.history.length > 1");
-                  if (result.toString() == 'true') {
-                    controller.runJavaScript("window.history.back();");
-                  } else {
+
+                  final String? currentUrl = await controller.currentUrl();
+                  final bool canGoBack = await controller.canGoBack();
+
+                  // اگر ہم مین ڈیش بورڈ پر ہیں تو ہسٹری چیک کیے بغیر باہر نکل جائیں
+                  if (currentUrl == mainUrl || !canGoBack) {
                     SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+                  } else {
+                    // ورنہ پیچھے جائیں
+                    controller.goBack();
                   }
                 },
                 child: Scaffold(
