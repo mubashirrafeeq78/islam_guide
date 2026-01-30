@@ -24,68 +24,24 @@ jobs:
         with:
           flutter-version: '3.22.0'
 
-      - name: Add Package and Build
+      - name: Final Build Step
         run: |
-          # 1. پیکج شامل کرنا (جو پہلے رہ گیا تھا)
-          flutter pub add webview_flutter
+          # 1. اگر فائلیں غائب ہیں تو دوبارہ جنریٹ کریں
+          if [ ! -d "android" ]; then
+            flutter create --project-name=masail_ka_hal --platforms=android .
+          fi
           
-          # 2. بیک بٹن والا درست کوڈ دوبارہ لکھنا
-          cat <<EOF > lib/main.dart
-          import 'package:flutter/material.dart';
-          import 'package:webview_flutter/webview_flutter.dart';
-          void main() => runApp(const MaterialApp(home: SafeArea(child: AppBody()), debugShowCheckedModeBanner: false));
-          class AppBody extends StatefulWidget {
-            const AppBody({super.key});
-            @override State<AppBody> createState() => _AppBodyState();
-          }
-          class _AppBodyState extends State<AppBody> {
-            late final WebViewController controller;
-            bool isLoading = true;
-            @override
-            void initState() {
-              super.initState();
-              controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setNavigationDelegate(NavigationDelegate(
-                  onPageStarted: (url) => setState(() => isLoading = true),
-                  onPageFinished: (url) => setState(() => isLoading = false),
-                ))
-                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.html'));
-            }
-            @override
-            Widget build(BuildContext context) {
-              return PopScope(
-                canPop: false,
-                onPopInvoked: (didPop) async {
-                  if (didPop) return;
-                  if (await controller.canGoBack()) {
-                    controller.goBack();
-                  } else {
-                    if (context.mounted) Navigator.of(context).pop();
-                  }
-                },
-                child: Scaffold(
-                  body: Stack(
-                    children: [
-                      WebViewWidget(controller: controller),
-                      if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
-                    ],
-                  ),
-                ),
-              );
-            }
-          }
-          EOF
-
-          # 3. تبدیلیوں کو ریپوزٹری میں پش کرنا
-          git config --global user.email "bot@github.com"
-          git config --global user.name "Fixer-Bot"
-          git add .
-          git commit -m "Fixed webview dependency and back button"
-          git push origin main || true
-
+          # 2. پیکیج اور لائسنس
+          flutter pub add webview_flutter || true
+          yes | flutter doctor --android-licenses || true
+          
+          # 3. گریڈل کو درست کرنا اور بلڈ بنانا
+          cd android
+          chmod +x gradlew
+          ./gradlew clean
+          cd ..
+          
           # 4. اے پی کے بنانا
-          chmod +x android/gradlew
           flutter pub get
           flutter build apk --release --split-per-abi
 
