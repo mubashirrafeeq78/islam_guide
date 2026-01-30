@@ -1,4 +1,4 @@
-name: Professional App - Masail ka Hal
+name: Professional App - Final Fix
 on:
   push:
     branches: [ main ]
@@ -13,29 +13,26 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java & Flutter
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Flutter
+      - name: Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
 
-      - name: Final Build Step
+      - name: Master Repair & Build
         run: |
-          # 1. اگر فائلیں غائب ہیں تو دوبارہ جنریٹ کریں
-          if [ ! -d "android" ]; then
-            flutter create --project-name=masail_ka_hal --platforms=android .
-          fi
+          # 1. پراجیکٹ کی فائلوں کو دوبارہ درست ترتیب دینا
+          flutter create --project-name=masail_ka_hal --platforms=android . || true
           
-          # 2. پیکیج اور لائسنس
+          # 2. ضروری پیکیجز شامل کرنا
           flutter pub add webview_flutter || true
-          yes | flutter doctor --android-licenses || true
           
-          # 3. گریڈل کو درست کرنا اور بلڈ بنانا
+          # 3. اینڈرائیڈ لائسنس اور پرمیشن فکس
+          yes | flutter doctor --android-licenses || true
           cd android
           chmod +x gradlew
           ./gradlew clean
@@ -48,5 +45,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-APK
+          name: Masail-ka-Hal-Fixed-APK
           path: build/app/outputs/flutter-apk/*.apk
