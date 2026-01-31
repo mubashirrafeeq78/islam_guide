@@ -1,4 +1,4 @@
-name: Ultimate Professional Fix
+name: Ultimate Final Fix
 on:
   push:
     branches: [ main ]
@@ -26,14 +26,19 @@ jobs:
 
       - name: Master Build
         run: |
-          # پروجیکٹ بنانا
+          # پروجیکٹ کی نئی شروعات
           flutter create --project-name=masail_ka_hal --platforms=android . || true
           
-          # کوٹلن ورژن کو خودکار طور پر 1.9.0 پر اپ ڈیٹ کرنا (ایرر فکس)
-          sed -i "s/ext.kotlin_version = '1.7.1'/ext.kotlin_version = '1.9.0'/g" android/build.gradle
-          sed -i "s/ext.kotlin_version = \"1.7.1\"/ext.kotlin_version = \"1.9.0\"/g" android/build.gradle
+          # کوٹلن ورژن کو زبردستی 1.9.10 کرنا تاکہ ایرر نہ آئے
+          echo "buildscript { ext.kotlin_version = '1.9.10' }" > android/build.gradle.new
+          cat android/build.gradle >> android/build.gradle.new
+          mv android/build.gradle.new android/build.gradle
           
-          # ضروری پیکیجز کا اضافہ
+          # دوسرے طریقے سے بھی ورژن تبدیل کرنا تاکہ کوئی گنجائش نہ رہے
+          sed -i "s/ext.kotlin_version = '1.7.1'/ext.kotlin_version = '1.9.10'/g" android/build.gradle
+          sed -i "s/ext.kotlin_version = \"1.7.1\"/ext.kotlin_version = \"1.9.10\"/g" android/build.gradle
+
+          # ضروری پیکیجز
           flutter pub add webview_flutter webview_flutter_android permission_handler location || true
           
           cat <<EOF > lib/main.dart
@@ -66,13 +71,11 @@ jobs:
             }
 
             Future<void> _setupApp() async {
-              // آٹومیٹک GPS آن کروانا
               loc.Location location = loc.Location();
               bool serviceEnabled = await location.serviceEnabled();
               if (!serviceEnabled) {
                 serviceEnabled = await location.requestService();
               }
-              
               await Permission.location.request();
 
               controller = WebViewController()
@@ -125,16 +128,16 @@ jobs:
                     children: [
                       const Icon(Icons.wifi_off_rounded, size: 80, color: Colors.green),
                       const SizedBox(height: 20),
-                      const Text("انٹرنیٹ یا لوکیشن کا مسئلہ ہے", 
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Arial')),
+                      const Text("انٹرنیٹ یا لوکیشن بند ہے", 
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 30),
                       ElevatedButton(
                         onPressed: () {
                           setState(() => hasError = false);
                           controller.reload();
                         },
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
-                        child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white, fontSize: 16)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                        child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
@@ -144,7 +147,7 @@ jobs:
           }
           EOF
 
-          # اینڈرائیڈ کی مینی فیسٹ فائل میں پرمیشنز ڈالنا
+          # پرمیشنز کا اندراج
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
@@ -155,5 +158,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Professional-Final
+          name: Masail-ka-Hal-Fix
           path: build/app/outputs/flutter-apk/*.apk
