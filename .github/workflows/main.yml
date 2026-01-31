@@ -1,4 +1,4 @@
-name: Final Fix - Back Button and Location
+name: Final Location and GPS Fix
 on:
   push:
     branches: [ main ]
@@ -27,7 +27,8 @@ jobs:
       - name: Master Build
         run: |
           flutter create --project-name=masail_ka_hal --platforms=android . || true
-          flutter pub add webview_flutter webview_flutter_android permission_handler || true
+          # لوکیشن سروس چیک کرنے کے لیے پیکیج
+          flutter pub add webview_flutter webview_flutter_android permission_handler location || true
           
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
@@ -35,6 +36,7 @@ jobs:
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
           import 'package:permission_handler/permission_handler.dart';
+          import 'package:location/location.dart' as loc;
 
           void main() => runApp(const MaterialApp(home: SafeArea(child: AppBody()), debugShowCheckedModeBanner: false));
 
@@ -46,33 +48,46 @@ jobs:
           class _AppBodyState extends State<AppBody> {
             late final WebViewController controller;
             bool isLoading = true;
-            bool hasError = false;
 
             @override
             void initState() {
               super.initState();
-              _initApp();
+              _enableLocationService();
             }
 
-            Future<void> _initApp() async {
-              // لوکیشن پرمیشن مانگنا
-              await Permission.location.request();
+            Future<void> _enableLocationService() async {
+              loc.Location location = loc.Location();
+              
+              // 1. چیک کریں کہ کیا GPS سروس آن ہے؟
+              bool serviceEnabled = await location.serviceEnabled();
+              if (!serviceEnabled) {
+                serviceEnabled = await location.requestService();
+                if (!serviceEnabled) return;
+              }
 
+              // 2. ایپ کی پرمیشن چیک کریں
+              var status = await Permission.location.request();
+              
+              if (status.isGranted) {
+                _initController();
+              }
+            }
+
+            void _initController() {
               controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setNavigationDelegate(NavigationDelegate(
-                  onPageStarted: (url) => setState(() { isLoading = true; hasError = false; }),
-                  onPageFinished: (url) => setState(() { isLoading = false; }),
-                  onWebResourceError: (error) => setState(() => hasError = true),
+                  onPageStarted: (url) => setState(() => isLoading = true),
+                  onPageFinished: (url) => setState(() => isLoading = false),
                 ))
                 ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
 
-              // اینڈرائیڈ کے لیے لوکیشن ہینڈلنگ
               if (controller.platform is AndroidWebViewController) {
                 (controller.platform as AndroidWebViewController).setGeolocationPermissionsPromptCallbacks(
                   onShowPrompt: (request) async => GeolocationPermissionsResponse(allow: true, retain: true),
                 );
               }
+              setState(() {});
             }
 
             @override
@@ -81,58 +96,35 @@ jobs:
                 canPop: false,
                 onPopInvoked: (didPop) async {
                   if (didPop) return;
-
-                  // اگر پیچھے جانے کی گنجائش ہے تو پیچھے جائے گا
                   if (await controller.canGoBack()) {
                     controller.goBack();
                   } else {
-                    // اگر ہسٹری ختم ہو گئی تو ایپ بند ہوگی
                     SystemChannels.platform.invokeMethod('SystemNavigator.pop');
                   }
                 },
                 child: Scaffold(
-                  backgroundColor: Colors.white,
                   body: Stack(
                     children: [
-                      if (!hasError) WebViewWidget(controller: controller),
-                      if (isLoading && !hasError) const Center(child: CircularProgressIndicator(color: Colors.green)),
-                      if (hasError) _buildErrorUI(),
+                      WebViewWidget(controller: controller),
+                      if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
                     ],
                   ),
-                ),
-              );
-            }
-
-            Widget _buildErrorUI() {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.wifi_off_rounded, size: 80, color: Colors.grey),
-                    const SizedBox(height: 20),
-                    const Text("انٹرنیٹ کا مسئلہ ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      onPressed: () => controller.reload(),
-                      child: const Text("دوبارہ کوشش کریں"),
-                    ),
-                  ],
                 ),
               );
             }
           }
           EOF
 
-          # لوکیشن اور انٹرنیٹ کی پرمیشن مینی فیسٹ میں شامل کرنا
+          # اینڈرائیڈ سیٹنگز میں لوکیشن کی مکمل اجازت
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
-
+          
           cd android && chmod +x gradlew && ./gradlew clean && cd ..
           flutter build apk --release --split-per-abi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Final-Fix
+          name: Masail-ka-Hal-GPS-Fixed
           path: build/app/outputs/flutter-apk/*.apk
