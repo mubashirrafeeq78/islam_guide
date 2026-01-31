@@ -1,4 +1,4 @@
-name: Professional App - Exit Fix
+name: Professional App - Location & History Fix
 on:
   push:
     branches: [ main ]
@@ -26,12 +26,15 @@ jobs:
       - name: Master Build
         run: |
           flutter create --project-name=masail_ka_hal --platforms=android . || true
-          flutter pub add webview_flutter || true
+          # لوکیشن پرمیشن کے لیے پیکج شامل کرنا
+          flutter pub add webview_flutter permission_handler || true
           
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:flutter/services.dart';
           import 'package:webview_flutter/webview_flutter.dart';
+          import 'package:webview_flutter_android/webview_flutter_android.dart';
+          import 'package:permission_handler/permission_handler.dart';
 
           void main() => runApp(const MaterialApp(home: SafeArea(child: AppBody()), debugShowCheckedModeBanner: false));
 
@@ -44,20 +47,43 @@ jobs:
             late final WebViewController controller;
             bool isLoading = true;
             bool hasError = false;
-            // آپ کا مین ڈیش بورڈ لنک
-            final String mainUrl = 'https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php';
 
             @override
             void initState() {
               super.initState();
+              
+              // لوکیشن پرمیشن کی درخواست کرنا
+              _requestLocationPermission();
+
               controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..addJavaScriptChannel(
+                  'Flutter',
+                  onMessageReceived: (JavaScriptMessage message) {
+                    if (message.message == 'new_page') {
+                      controller.clearHistory();
+                    }
+                  },
+                )
                 ..setNavigationDelegate(NavigationDelegate(
                   onPageStarted: (url) => setState(() { isLoading = true; hasError = false; }),
                   onPageFinished: (url) => setState(() { isLoading = false; }),
                   onWebResourceError: (error) => setState(() => hasError = true),
                 ))
-                ..loadRequest(Uri.parse(mainUrl));
+                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
+
+              // اینڈرائیڈ مخصوص سیٹنگز برائے لوکیشن
+              if (controller.platform is AndroidWebViewController) {
+                (controller.platform as AndroidWebViewController).setGeolocationPermissionsPromptCallbacks(
+                  onShowPrompt: (request) async {
+                    return GeolocationPermissionsResponse(allow: true, retain: true);
+                  },
+                );
+              }
+            }
+
+            Future<void> _requestLocationPermission() async {
+              await Permission.location.request();
             }
 
             @override
@@ -66,16 +92,11 @@ jobs:
                 canPop: false,
                 onPopInvoked: (didPop) async {
                   if (didPop) return;
-
-                  final String? currentUrl = await controller.currentUrl();
-                  final bool canGoBack = await controller.canGoBack();
-
-                  // اگر ہم مین ڈیش بورڈ پر ہیں تو ہسٹری چیک کیے بغیر باہر نکل جائیں
-                  if (currentUrl == mainUrl || !canGoBack) {
-                    SystemChannels.platform.invokeMethod('SystemNavigator.pop');
-                  } else {
-                    // ورنہ پیچھے جائیں
+                  bool canGoBack = await controller.canGoBack();
+                  if (canGoBack) {
                     controller.goBack();
+                  } else {
+                    SystemChannels.platform.invokeMethod('SystemNavigator.pop');
                   }
                 },
                 child: Scaffold(
@@ -103,7 +124,6 @@ jobs:
                       const Text("انٹرنیٹ موجود نہیں ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 30),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                         onPressed: () => controller.reload(),
                         child: const Text("دوبارہ کوشش کریں"),
                       )
@@ -115,12 +135,16 @@ jobs:
           }
           EOF
 
+          # اینڈرائیڈ مینی فیسٹ میں لوکیشن کی پرمیشنز شامل کرنا
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
+
           cd android && chmod +x gradlew && ./gradlew clean && cd ..
           flutter build apk --release --split-per-abi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Final-APK
+          name: Masail-ka-Hal-Final-Location-Fix
           path: build/app/outputs/flutter-apk/*.apk
