@@ -1,4 +1,4 @@
-name: Professional App - Location & History Fix
+name: Secure App - Domain Control Fix
 on:
   push:
     branches: [ main ]
@@ -26,14 +26,15 @@ jobs:
       - name: Master Build
         run: |
           flutter create --project-name=masail_ka_hal --platforms=android . || true
-          # لوکیشن پرمیشن کے لیے پیکج شامل کرنا
-          flutter pub add webview_flutter permission_handler || true
+          # ضروری لائبریریز شامل کرنا
+          flutter pub add webview_flutter http permission_handler webview_flutter_android || true
           
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:flutter/services.dart';
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
+          import 'package:http/http.dart' as http;
           import 'package:permission_handler/permission_handler.dart';
 
           void main() => runApp(const MaterialApp(home: SafeArea(child: AppBody()), debugShowCheckedModeBanner: false));
@@ -44,46 +45,61 @@ jobs:
           }
 
           class _AppBodyState extends State<AppBody> {
-            late final WebViewController controller;
+            WebViewController? controller;
             bool isLoading = true;
-            bool hasError = false;
+            String? targetUrl;
 
             @override
             void initState() {
               super.initState();
-              
-              // لوکیشن پرمیشن کی درخواست کرنا
-              _requestLocationPermission();
+              _startApp();
+            }
 
-              controller = WebViewController()
+            Future<void> _startApp() async {
+              // لوکیشن پرمیشن
+              await Permission.location.request();
+              
+              try {
+                // آپ کی گٹ ہب فائل سے لنک پڑھنا
+                final response = await http.get(Uri.parse('https://raw.githubusercontent.com/mubashirrafeeq78/islam_guide/main/app_config.txt'));
+                if (response.statusCode == 200) {
+                  targetUrl = response.body.trim();
+                }
+              } catch (e) {
+                // ایمرجنسی بیک اپ لنک
+                targetUrl = 'https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php';
+              }
+
+              if (targetUrl != null) {
+                _initController();
+              }
+            }
+
+            void _initController() {
+              final WebViewController vnt = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..addJavaScriptChannel(
                   'Flutter',
                   onMessageReceived: (JavaScriptMessage message) {
-                    if (message.message == 'new_page') {
-                      controller.clearHistory();
-                    }
+                    // مینو بدلنے پر ہسٹری چیک کرنے کی ضرورت نہیں، URL چیک کافی ہے
                   },
                 )
                 ..setNavigationDelegate(NavigationDelegate(
-                  onPageStarted: (url) => setState(() { isLoading = true; hasError = false; }),
-                  onPageFinished: (url) => setState(() { isLoading = false; }),
-                  onWebResourceError: (error) => setState(() => hasError = true),
+                  onPageStarted: (url) => setState(() => isLoading = true),
+                  onPageFinished: (url) => setState(() => isLoading = false),
                 ))
-                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
+                ..loadRequest(Uri.parse(targetUrl!));
 
-              // اینڈرائیڈ مخصوص سیٹنگز برائے لوکیشن
-              if (controller.platform is AndroidWebViewController) {
-                (controller.platform as AndroidWebViewController).setGeolocationPermissionsPromptCallbacks(
-                  onShowPrompt: (request) async {
-                    return GeolocationPermissionsResponse(allow: true, retain: true);
-                  },
+              // لوکیشن پرمیشن ہینڈلر
+              if (vnt.platform is AndroidWebViewController) {
+                (vnt.platform as AndroidWebViewController).setGeolocationPermissionsPromptCallbacks(
+                  onShowPrompt: (request) async => GeolocationPermissionsResponse(allow: true, retain: true),
                 );
               }
-            }
 
-            Future<void> _requestLocationPermission() async {
-              await Permission.location.request();
+              setState(() {
+                controller = vnt;
+              });
             }
 
             @override
@@ -91,54 +107,39 @@ jobs:
               return PopScope(
                 canPop: false,
                 onPopInvoked: (didPop) async {
-                  if (didPop) return;
-                  bool canGoBack = await controller.canGoBack();
-                  if (canGoBack) {
-                    controller.goBack();
+                  if (didPop || controller == null) return;
+                  
+                  final String? currentUrl = await controller!.currentUrl();
+                  final bool canGoBack = await controller!.canGoBack();
+
+                  // اگر صارف ڈیش بورڈ پر ہے تو ایپ بند کر دیں
+                  if (currentUrl != null && currentUrl.contains('dashboard.php')) {
+                    SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+                  } else if (canGoBack) {
+                    controller!.goBack();
                   } else {
                     SystemChannels.platform.invokeMethod('SystemNavigator.pop');
                   }
                 },
                 child: Scaffold(
                   backgroundColor: Colors.white,
-                  body: Stack(
-                    children: [
-                      if (!hasError) WebViewWidget(controller: controller),
-                      if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
-                      if (hasError) _buildErrorUI(),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            Widget _buildErrorUI() {
-              return Container(
-                color: Colors.white,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.wifi_off_rounded, size: 80, color: Colors.green),
-                      const SizedBox(height: 20),
-                      const Text("انٹرنیٹ موجود نہیں ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 30),
-                      ElevatedButton(
-                        onPressed: () => controller.reload(),
-                        child: const Text("دوبارہ کوشش کریں"),
-                      )
-                    ],
-                  ),
+                  body: controller == null 
+                    ? const Center(child: CircularProgressIndicator(color: Colors.green))
+                    : Stack(
+                        children: [
+                          WebViewWidget(controller: controller!),
+                          if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
+                        ],
+                      ),
                 ),
               );
             }
           }
           EOF
 
-          # اینڈرائیڈ مینی فیسٹ میں لوکیشن کی پرمیشنز شامل کرنا
+          # اینڈرائیڈ کی مینی فیسٹ میں پرمیشنز ڈالنا
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
 
           cd android && chmod +x gradlew && ./gradlew clean && cd ..
           flutter build apk --release --split-per-abi
@@ -146,5 +147,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Final-Location-Fix
+          name: Masail-ka-Hal-Final-Super-Secure
           path: build/app/outputs/flutter-apk/*.apk
