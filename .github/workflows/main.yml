@@ -1,4 +1,4 @@
-name: Global Version Fix Build
+name: Ultimate Success Build
 on:
   push:
     branches: [ main ]
@@ -7,13 +7,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
@@ -22,85 +20,73 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2'
+          flutter-version: '3.24.0' # مستحکم اور جدید ورژن
 
-      - name: Fix Kotlin & Build
+      - name: Clean Start & Force Version Fix
         run: |
-          # 1. پروجیکٹ فائلز بنانا
-          flutter create --project-name=masail_ka_hal --platforms=android . || true
+          # 1. پرانا کچرا صاف کریں
+          rm -rf android .idea
           
-          # 2. کوٹلن ورژن کو فائلز میں زبردستی ٹھیک کرنا (Sed Commands)
-          # یہ کمانڈز فائل کے اندر جا کر ورژن بدل دیں گی
-          sed -i "s/ext.kotlin_version = '1.7.1'/ext.kotlin_version = '1.9.10'/g" android/build.gradle
-          sed -i "s/ext.kotlin_version = \"1.7.1\"/ext.kotlin_version = \"1.9.10\"/g" android/build.gradle
-          sed -i "s/kotlin_version = '1.7.1'/kotlin_version = '1.9.10'/g" android/build.gradle
+          # 2. بالکل نئی اینڈرائیڈ کنفیگریشن بنائیں
+          flutter create --platforms=android .
           
-          # 3. پیکیجز شامل کرنا
+          # 3. کوٹلن ورژن کو جدید ترین (1.9.22) پر سیٹ کریں جو ہر ڈیوائس پر چلے گا
+          sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.22'/g" android/build.gradle
+          
+          # 4. ضروری پیکیجز شامل کریں
           flutter pub add webview_flutter webview_flutter_android permission_handler location
           
-          # 4. مین کوڈ (Main.dart) لکھنا
+          # 5. ایپ کا اصلی کوڈ (WebView + Permissions)
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:permission_handler/permission_handler.dart';
           import 'package:location/location.dart' as loc;
 
-          void main() => runApp(const MaterialApp(home: WebViewApp(), debugShowCheckedModeBanner: false));
+          void main() => runApp(const MaterialApp(
+            home: MainApp(),
+            debugShowCheckedModeBanner: false,
+          ));
 
-          class WebViewApp extends StatefulWidget {
-            const WebViewApp({super.key});
-            @override State<WebViewApp> createState() => _WebViewAppState();
+          class MainApp extends StatefulWidget {
+            const MainApp({super.key});
+            @override State<MainApp> createState() => _MainAppState();
           }
 
-          class _WebViewAppState extends State<WebViewApp> {
-            late final WebViewController controller;
-            bool hasError = false;
-
+          class _MainAppState extends State<MainApp> {
+            late final WebViewController _controller;
+            
             @override
             void initState() {
               super.initState();
-              _initApp();
+              _controller = WebViewController()
+                ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
+              _checkPermissions();
             }
 
-            Future<void> _initApp() async {
+            Future<void> _checkPermissions() async {
               await Permission.location.request();
-              loc.Location().requestService();
-              
-              controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setNavigationDelegate(NavigationDelegate(
-                  onWebResourceError: (error) => setState(() => hasError = true),
-                ))
-                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
+              await loc.Location().requestService();
             }
 
             @override
             Widget build(BuildContext context) {
               return Scaffold(
-                body: SafeArea(
-                  child: hasError 
-                    ? Center(child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text("کنکشن کا مسئلہ ہے"),
-                          ElevatedButton(onPressed: () => setState(() { hasError = false; controller.reload(); }), child: const Text("دوبارہ کوشش کریں"))
-                        ],
-                      ))
-                    : WebViewWidget(controller: controller),
-                ),
+                body: SafeArea(child: WebViewWidget(controller: _controller)),
               );
             }
           }
           EOF
 
-          # 5. پرمیشنز شامل کرنا
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
+          # 6. اینڈرائیڈ پرمیشنز (Manifest Fix)
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
 
-          # 6. کلین بلڈ
-          flutter build apk --release --split-per-abi
+      - name: Build Final APK
+        run: flutter build apk --release
 
-      - name: Upload APK
+      - name: Upload Result
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Success
-          path: build/app/outputs/flutter-apk/*.apk
+          name: Masail-ka-Hal-Final
+          path: build/app/outputs/flutter-apk/app-release.apk
