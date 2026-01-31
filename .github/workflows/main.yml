@@ -1,4 +1,4 @@
-name: Final Location and GPS Fix
+name: Final Fix - Location and Kotlin
 on:
   push:
     branches: [ main ]
@@ -27,8 +27,11 @@ jobs:
       - name: Master Build
         run: |
           flutter create --project-name=masail_ka_hal --platforms=android . || true
-          # لوکیشن سروس چیک کرنے کے لیے پیکیج
-          flutter pub add webview_flutter webview_flutter_android permission_handler location || true
+          # ہم صرف ضروری پیکیجز رکھیں گے تاکہ بلڈ فیل نہ ہو
+          flutter pub add webview_flutter webview_flutter_android permission_handler || true
+          
+          # کوٹلن ورژن اپ ڈیٹ کرنا (ایرر فکس کرنے کے لیے)
+          sed -i "s/ext.kotlin_version = '1.7.1'/ext.kotlin_version = '1.9.0'/g" android/build.gradle
           
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
@@ -36,7 +39,6 @@ jobs:
           import 'package:webview_flutter/webview_flutter.dart';
           import 'package:webview_flutter_android/webview_flutter_android.dart';
           import 'package:permission_handler/permission_handler.dart';
-          import 'package:location/location.dart' as loc;
 
           void main() => runApp(const MaterialApp(home: SafeArea(child: AppBody()), debugShowCheckedModeBanner: false));
 
@@ -52,28 +54,13 @@ jobs:
             @override
             void initState() {
               super.initState();
-              _enableLocationService();
+              _initApp();
             }
 
-            Future<void> _enableLocationService() async {
-              loc.Location location = loc.Location();
-              
-              // 1. چیک کریں کہ کیا GPS سروس آن ہے؟
-              bool serviceEnabled = await location.serviceEnabled();
-              if (!serviceEnabled) {
-                serviceEnabled = await location.requestService();
-                if (!serviceEnabled) return;
-              }
+            Future<void> _initApp() async {
+              // صرف لوکیشن کی پرمیشن مانگنا
+              await Permission.location.request();
 
-              // 2. ایپ کی پرمیشن چیک کریں
-              var status = await Permission.location.request();
-              
-              if (status.isGranted) {
-                _initController();
-              }
-            }
-
-            void _initController() {
               controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setNavigationDelegate(NavigationDelegate(
@@ -82,6 +69,7 @@ jobs:
                 ))
                 ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
 
+              // یہ حصہ ویب سائٹ کو لوکیشن استعمال کرنے کی اجازت دے گا
               if (controller.platform is AndroidWebViewController) {
                 (controller.platform as AndroidWebViewController).setGeolocationPermissionsPromptCallbacks(
                   onShowPrompt: (request) async => GeolocationPermissionsResponse(allow: true, retain: true),
@@ -115,7 +103,7 @@ jobs:
           }
           EOF
 
-          # اینڈرائیڈ سیٹنگز میں لوکیشن کی مکمل اجازت
+          # پرمیشنز کو اینڈرائیڈ سسٹم میں رجسٹر کرنا
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
@@ -126,5 +114,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-GPS-Fixed
+          name: Masail-ka-Hal-Location-Fix
           path: build/app/outputs/flutter-apk/*.apk
