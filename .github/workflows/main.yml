@@ -1,4 +1,4 @@
-name: Final Professional Build
+name: Ultimate Professional Fix
 on:
   push:
     branches: [ main ]
@@ -26,11 +26,15 @@ jobs:
 
       - name: Master Build
         run: |
+          # پروجیکٹ بنانا
           flutter create --project-name=masail_ka_hal --platforms=android . || true
-          flutter pub add webview_flutter webview_flutter_android permission_handler location || true
           
-          # کوٹلن ورژن اپ ڈیٹ کرنا تاکہ GPS پیکیج صحیح چلے
+          # کوٹلن ورژن کو خودکار طور پر 1.9.0 پر اپ ڈیٹ کرنا (ایرر فکس)
           sed -i "s/ext.kotlin_version = '1.7.1'/ext.kotlin_version = '1.9.0'/g" android/build.gradle
+          sed -i "s/ext.kotlin_version = \"1.7.1\"/ext.kotlin_version = \"1.9.0\"/g" android/build.gradle
+          
+          # ضروری پیکیجز کا اضافہ
+          flutter pub add webview_flutter webview_flutter_android permission_handler location || true
           
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
@@ -40,7 +44,10 @@ jobs:
           import 'package:permission_handler/permission_handler.dart';
           import 'package:location/location.dart' as loc;
 
-          void main() => runApp(const MaterialApp(home: SafeArea(child: AppBody()), debugShowCheckedModeBanner: false));
+          void main() => runApp(const MaterialApp(
+            home: SafeArea(child: AppBody()), 
+            debugShowCheckedModeBanner: false,
+          ));
 
           class AppBody extends StatefulWidget {
             const AppBody({super.key});
@@ -55,15 +62,15 @@ jobs:
             @override
             void initState() {
               super.initState();
-              _initApp();
+              _setupApp();
             }
 
-            Future<void> _initApp() async {
-              // ڈیوائس کا GPS خودکار طور پر آن کروانا
+            Future<void> _setupApp() async {
+              // آٹومیٹک GPS آن کروانا
               loc.Location location = loc.Location();
               bool serviceEnabled = await location.serviceEnabled();
               if (!serviceEnabled) {
-                await location.requestService();
+                serviceEnabled = await location.requestService();
               }
               
               await Permission.location.request();
@@ -118,15 +125,16 @@ jobs:
                     children: [
                       const Icon(Icons.wifi_off_rounded, size: 80, color: Colors.green),
                       const SizedBox(height: 20),
-                      const Text("انٹرنیٹ یا لوکیشن کا مسئلہ ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text("انٹرنیٹ یا لوکیشن کا مسئلہ ہے", 
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Arial')),
                       const SizedBox(height: 30),
                       ElevatedButton(
                         onPressed: () {
                           setState(() => hasError = false);
                           controller.reload();
                         },
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                        child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
+                        child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white, fontSize: 16)),
                       ),
                     ],
                   ),
@@ -136,6 +144,7 @@ jobs:
           }
           EOF
 
+          # اینڈرائیڈ کی مینی فیسٹ فائل میں پرمیشنز ڈالنا
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' android/app/src/main/AndroidManifest.xml
@@ -146,5 +155,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Final
+          name: Masail-ka-Hal-Professional-Final
           path: build/app/outputs/flutter-apk/*.apk
