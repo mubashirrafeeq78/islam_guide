@@ -15,13 +15,21 @@ jobs:
         with:
           channel: 'stable'
       
-      - name: Force Install Dependencies
+      - name: Install Dependencies
         run: |
           flutter pub get
           flutter pub add flutter_launcher_icons --dev
-      
-      - name: Generate App Icons
-        run: flutter pub run flutter_launcher_icons
+
+      - name: Configure and Generate Icons
+        run: |
+          cat <<EOF > flutter_launcher_icons.yaml
+          flutter_launcher_icons:
+            android: "launcher_icon"
+            ios: true
+            image_path: "icon.png"
+            adaptive_icon_background: "#ffffff"
+          EOF
+          flutter pub run flutter_launcher_icons
 
       - name: Build APK
         run: flutter build apk --release
