@@ -1,11 +1,11 @@
-name: Masail ka Hal Final Fix
+name: Final Fix - Masail ka Hal
 on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # سورس کوڈ واپس لکھنے کی اجازت
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -14,13 +14,18 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Generate Complete Source Code & Icons
+      - name: Full Project Regeneration with Permissions
         run: |
-          # 1. پرانی فائلیں صاف کر کے مکمل ڈھانچہ بنانا
-          rm -rf * .github
+          # 1. پرانی فائلیں صاف کریں
+          find . -maxdepth 1 ! -name 'icon.png' ! -name '.github' ! -name '.git' -exec rm -rf {} +
+          
+          # 2. نیا پروجیکٹ بنائیں
           flutter create . --project-name masail_ka_hal --org com.mubashir
           
-          # 2. درست URL اور خوبصورت ایرر ہینڈلنگ والا کوڈ
+          # 3. انٹرنیٹ کی اجازت (Permissions) شامل کریں (یہ سب سے اہم ہے)
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' android/app/src/main/AndroidManifest.xml
+
+          # 4. درست URL اور خوبصورت ایرر ہینڈلنگ والا کوڈ
           mkdir -p lib
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
@@ -48,10 +53,8 @@ jobs:
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setBackgroundColor(Colors.white)
                 ..setNavigationDelegate(NavigationDelegate(
-                  onWebResourceError: (error) {
-                    debugPrint("Error: \$error");
-                    setState(() => hasError = true);
-                  },
+                  onPageFinished: (url) => setState(() => hasError = false),
+                  onWebResourceError: (error) => setState(() => hasError = true),
                 ))
                 ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
             }
@@ -59,26 +62,28 @@ jobs:
             @override
             Widget build(BuildContext context) {
               return Scaffold(
+                backgroundColor: Colors.white,
                 body: SafeArea(
                   child: hasError 
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.signal_wifi_connected_no_internet_4, size: 80, color: Colors.blueGrey),
+                            const Icon(Icons.wifi_off_rounded, size: 100, color: Color(0xFF5D5D7E)),
                             const SizedBox(height: 20),
-                            const Text("رابطہ منقطع ہے", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                            const Text("رابطہ منقطع ہے", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
                             const Padding(
-                              padding: EdgeInsets.all(15),
-                              child: Text("براہِ کرم اپنا انٹرنیٹ کنکشن چیک کریں اور دوبارہ کوشش کریں", textAlign: TextAlign.center),
+                              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+                              child: Text("براہِ کرم اپنا انٹرنیٹ چیک کریں اور دوبارہ کوشش کریں", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
                             ),
-                            ElevatedButton.icon(
+                            const SizedBox(height: 20),
+                            ElevatedButton(
                               onPressed: () {
                                 setState(() => hasError = false);
                                 controller.reload();
                               },
-                              icon: const Icon(Icons.refresh),
-                              label: const Text("دوبارہ لوڈ کریں"),
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF7F2FA), foregroundColor: Colors.purple, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12)),
+                              child: const Text("دوبارہ لوڈ کریں", style: TextStyle(fontSize: 16)),
                             )
                           ],
                         ),
@@ -90,7 +95,7 @@ jobs:
           }
           EOF
 
-          # 3. آئیکون سیٹ اپ
+          # 5. آئیکون اور سورس کوڈ کی سیٹنگ
           cat <<EOF > pubspec.yaml
           name: masail_ka_hal
           environment:
@@ -109,17 +114,22 @@ jobs:
             uses-material-design: true
           EOF
           
-          # اگر آئیکون موجود ہو تو اسے ری-جنریٹ کرنا
           flutter pub get
-          if [ -f "icon.png" ]; then
-            flutter pub run flutter_launcher_icons
-          fi
+          if [ -f "icon.png" ]; then flutter pub run flutter_launcher_icons; fi
 
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Upload APK
+      - name: Upload Final APK
         uses: actions/upload-artifact@v4
         with:
           name: Masail_ka_Hal_App
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Sync Source Code to Repo
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add .
+          git commit -m "Complete source code with permissions and fix" || echo "No changes to commit"
+          git push origin main
