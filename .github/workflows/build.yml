@@ -1,4 +1,4 @@
-name: Ultimate Fix - Masail ka Hal
+name: Final Master Build
 on: [push]
 
 jobs:
@@ -14,32 +14,50 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Force Recreate Project & Add Permissions
+      - name: Master Setup
         run: |
-          # 1. محفوظ طریقے سے صفائی
-          mkdir temp_backup
-          mv .github icon.png temp_backup/ || true
-          rm -rf *
-          mv temp_backup/* .
-          rm -rf temp_backup
+          # 1. پروجیکٹ دوبارہ بنانا (بغیر پرانی فائلیں چھیڑے)
+          flutter create . --project-name masail_ka_hal --org com.mubashir --force
           
-          # 2. نیا پروجیکٹ بنانا
-          flutter create . --project-name masail_ka_hal --org com.mubashir
-          
-          # 3. انٹرنیٹ اور GPS کی پرمیشنز (AndroidManifest.xml)
-          # ہم یہاں Internet اور Location دونوں پرمیشنز شامل کر رہے ہیں
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' android/app/src/main/AndroidManifest.xml
+          # 2. انٹرنیٹ اور GPS کی اجازتیں شامل کرنا
+          # ہم نے GPS اور انٹرنیٹ کی تمام ضروری پرمیشنز یہاں ڈال دی ہیں
+          cat <<EOF > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <application
+                  android:label="Masail ka Hal"
+                  android:name="\${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data android:name="flutterEmbedding" android:value="2" />
+              </application>
+          </manifest>
+          EOF
 
-          # 4. درست URL اور بہتر ایرر ہینڈلنگ (GPS سپورٹ کے ساتھ)
+          # 3. مین براؤزر کوڈ (GPS سپورٹ اور اردو ایرر پیج کے ساتھ)
           mkdir -p lib
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
+          import 'package:webview_flutter_android/webview_flutter_android.dart';
 
-          void main() => runApp(const MaterialApp(
-            debugShowCheckedModeBanner: false,
-            home: SecureBrowser(),
-          ));
+          void main() => runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: SecureBrowser()));
 
           class SecureBrowser extends StatefulWidget {
             const SecureBrowser({super.key});
@@ -56,49 +74,35 @@ jobs:
               super.initState();
               controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..setBackgroundColor(Colors.white)
                 ..setNavigationDelegate(NavigationDelegate(
                   onPageFinished: (url) => setState(() => hasError = false),
                   onWebResourceError: (error) => setState(() => hasError = true),
                 ))
                 ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
+              
+              if (controller.platform is AndroidWebViewController) {
+                (controller.platform as AndroidWebViewController).setGeolocationEnabled(true);
+              }
             }
 
             @override
             Widget build(BuildContext context) {
               return Scaffold(
-                backgroundColor: Colors.white,
                 body: SafeArea(
                   child: hasError 
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.wifi_off_rounded, size: 100, color: Colors.blueGrey),
-                            const SizedBox(height: 20),
-                            const Text("رابطہ منقطع ہے", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 10),
-                              child: Text("انٹرنیٹ یا ڈومین کا مسئلہ ہے۔ براہِ کرم اپنا کنکشن چیک کریں۔", textAlign: TextAlign.center),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                setState(() => hasError = false);
-                                controller.reload();
-                              },
-                              child: const Text("دوبارہ کوشش کریں"),
-                            )
-                          ],
-                        ),
-                      )
-                    : WebViewWidget(controller: controller),
+                  ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const Icon(Icons.wifi_off, size: 80, color: Colors.red),
+                      const Text("رابطہ منقطع ہے", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      ElevatedButton(onPressed: () { setState(() => hasError = false); controller.reload(); }, child: const Text("دوبارہ کوشش کریں"))
+                    ]))
+                  : WebViewWidget(controller: controller),
                 ),
               );
             }
           }
           EOF
 
-          # 5. پیکیجز اور آئیکون سیٹ اپ
+          # 4. آئیکون اور سیٹنگز
           cat <<EOF > pubspec.yaml
           name: masail_ka_hal
           environment:
@@ -107,6 +111,7 @@ jobs:
             flutter:
               sdk: flutter
             webview_flutter: ^4.4.2
+            webview_flutter_android: ^3.10.1
           dev_dependencies:
             flutter_launcher_icons: ^0.13.1
           flutter_launcher_icons:
@@ -116,23 +121,23 @@ jobs:
           flutter:
             uses-material-design: true
           EOF
-          
+
           flutter pub get
           if [ -f "icon.png" ]; then flutter pub run flutter_launcher_icons; fi
 
       - name: Build APK
         run: flutter build apk --release
 
+      - name: Sync To GitHub
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add .
+          git commit -m "Final Secure Build with GPS" || echo "No changes"
+          git push origin main
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail_ka_Hal_Complete_App
+          name: Masail_ka_Hal_App
           path: build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Push All Files to GitHub
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add .
-          git commit -m "Complete setup with GPS, Internet and Icon" || echo "No changes"
-          git push origin main
