@@ -1,4 +1,4 @@
-name: Ultimate Success Build
+name: Final Final Success Build
 on:
   push:
     branches: [ main ]
@@ -22,58 +22,50 @@ jobs:
         with:
           flutter-version: '3.24.0'
 
-      - name: Full Clean & Version Fix
+      - name: Fix Kotlin in New Template
         run: |
+          # 1. مکمل صفائی
           rm -rf android .idea
+          
+          # 2. نیا پروجیکٹ بنانا
           flutter create --platforms=android --project-name=masail_ka_hal .
           
-          # Kotlin version fix
-          sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.22'/g" android/build.gradle
+          # 3. نئے طریقے کے مطابق Kotlin ورژن ٹھیک کرنا (Settings.gradle میں)
+          # یہ وہ جگہ ہے جہاں اب فلٹر ورژن محفوظ کرتا ہے
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22" apply false/g' android/settings.gradle
           
+          # 4. اینڈرائیڈ SDK ورژن کو 35 پر سیٹ کرنا (جیسا کہ لاگ میں مانگا گیا تھا)
+          sed -i 's/compileSdk = .*/compileSdk = 35/g' android/app/build.gradle
+          
+          # 5. ضروری پیکیجز
           flutter pub add webview_flutter webview_flutter_android permission_handler location
           
-          # Main.dart code
+          # 6. ایپ کوڈ
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          import 'package:permission_handler/permission_handler.dart';
-          import 'package:location/location.dart' as loc;
-
-          void main() => runApp(const MaterialApp(home: MasailApp(), debugShowCheckedModeBanner: false));
-
-          class MasailApp extends StatefulWidget {
-            const MasailApp({super.key});
-            @override State<MasailApp> createState() => _MasailAppState();
-          }
-
-          class _MasailAppState extends State<MasailApp> {
-            late final WebViewController _controller;
-            @override
-            void initState() {
-              super.initState();
-              _controller = WebViewController()
-                ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
-              _init();
-            }
-            Future<void> _init() async {
-              await Permission.location.request();
-              await loc.Location().requestService();
-            }
-            @override
-            Widget build(BuildContext context) {
-              return Scaffold(body: SafeArea(child: WebViewWidget(controller: _controller)));
-            }
-          }
+          void main() => runApp(MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              body: SafeArea(
+                child: WebViewWidget(
+                  controller: WebViewController()
+                    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                    ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php')),
+                ),
+              ),
+            ),
+          ));
           EOF
 
-          # Final Android Fix
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' android/app/src/main/AndroidManifest.xml
+          # 7. انٹرنیٹ پرمیشن
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
+          # 8. بلڈ
           flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Final-APK
+          name: Success-APK
           path: build/app/outputs/flutter-apk/app-release.apk
