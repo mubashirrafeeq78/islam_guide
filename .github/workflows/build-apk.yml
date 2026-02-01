@@ -1,0 +1,132 @@
+name: Build Flutter APK - Masail ka Hal
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.9'
+          channel: 'stable'
+
+      - name: Create Flutter Project
+        run: |
+          flutter create "Masail_ka_Hal"
+          cd Masail_ka_Hal
+
+          cat > pubspec.yaml <<'EOF'
+          name: masail_ka_hal
+          description: Ultra light WebView app
+          publish_to: 'none'
+          version: 1.0.0+1
+
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+
+          dependencies:
+            flutter:
+              sdk: flutter
+            webview_flutter: ^4.4.2
+            geolocator: ^10.1.0
+
+          flutter:
+            uses-material-design: true
+          EOF
+
+          cat > lib/main.dart <<'EOF'
+          import 'package:flutter/material.dart';
+          import 'package:webview_flutter/webview_flutter.dart';
+          import 'package:geolocator/geolocator.dart';
+
+          void main() {
+            WidgetsFlutterBinding.ensureInitialized();
+            runApp(const MyApp());
+          }
+
+          class MyApp extends StatelessWidget {
+            const MyApp({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return const MaterialApp(
+                debugShowCheckedModeBanner: false,
+                home: WebViewScreen(),
+              );
+            }
+          }
+
+          class WebViewScreen extends StatefulWidget {
+            const WebViewScreen({super.key});
+
+            @override
+            State<WebViewScreen> createState() => _WebViewScreenState();
+          }
+
+          class _WebViewScreenState extends State<WebViewScreen> {
+            late final WebViewController controller;
+
+            @override
+            void initState() {
+              super.initState();
+              _requestLocation();
+
+              controller = WebViewController()
+                ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..loadRequest(Uri.parse(
+                  'https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php',
+                ));
+            }
+
+            Future<void> _requestLocation() async {
+              await Geolocator.requestPermission();
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                body: SafeArea(
+                  child: WebViewWidget(controller: controller),
+                ),
+              );
+            }
+          }
+          EOF
+
+      - name: Android permissions + icon
+        run: |
+          cd Masail_ka_Hal
+          sed -i '/<manifest/a \
+          <uses-permission android:name="android.permission.INTERNET"/>\
+          <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\
+          <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>' android/app/src/main/AndroidManifest.xml
+
+          sed -i 's/android:label="Masail_ka_Hal"/android:label="Masail ka Hal"/' android/app/src/main/AndroidManifest.xml
+
+          mkdir -p android/app/src/main/res/mipmap-anydpi-v26
+          cp ../icon.png android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.png || true
+
+      - name: Build APK (small size)
+        run: |
+          cd Masail_ka_Hal
+          flutter pub get
+          flutter build apk --release --split-per-abi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Masail-ka-Hal-APK
+          path: Masail_ka_Hal/build/app/outputs/flutter-apk/*.apk
