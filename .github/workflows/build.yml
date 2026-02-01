@@ -1,4 +1,4 @@
-name: Final Fix - Masail ka Hal
+name: Ultimate Fix - Masail ka Hal
 on: [push]
 
 jobs:
@@ -14,18 +14,23 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Full Project Regeneration with Permissions
+      - name: Force Recreate Project & Add Permissions
         run: |
-          # 1. پرانی فائلیں صاف کریں
-          find . -maxdepth 1 ! -name 'icon.png' ! -name '.github' ! -name '.git' -exec rm -rf {} +
+          # 1. محفوظ طریقے سے صفائی
+          mkdir temp_backup
+          mv .github icon.png temp_backup/ || true
+          rm -rf *
+          mv temp_backup/* .
+          rm -rf temp_backup
           
-          # 2. نیا پروجیکٹ بنائیں
+          # 2. نیا پروجیکٹ بنانا
           flutter create . --project-name masail_ka_hal --org com.mubashir
           
-          # 3. انٹرنیٹ کی اجازت (Permissions) شامل کریں (یہ سب سے اہم ہے)
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' android/app/src/main/AndroidManifest.xml
+          # 3. انٹرنیٹ اور GPS کی پرمیشنز (AndroidManifest.xml)
+          # ہم یہاں Internet اور Location دونوں پرمیشنز شامل کر رہے ہیں
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />' android/app/src/main/AndroidManifest.xml
 
-          # 4. درست URL اور خوبصورت ایرر ہینڈلنگ والا کوڈ
+          # 4. درست URL اور بہتر ایرر ہینڈلنگ (GPS سپورٹ کے ساتھ)
           mkdir -p lib
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
@@ -69,21 +74,19 @@ jobs:
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.wifi_off_rounded, size: 100, color: Color(0xFF5D5D7E)),
+                            const Icon(Icons.wifi_off_rounded, size: 100, color: Colors.blueGrey),
                             const SizedBox(height: 20),
-                            const Text("رابطہ منقطع ہے", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+                            const Text("رابطہ منقطع ہے", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 40, vertical: 10),
-                              child: Text("براہِ کرم اپنا انٹرنیٹ چیک کریں اور دوبارہ کوشش کریں", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                              child: Text("انٹرنیٹ یا ڈومین کا مسئلہ ہے۔ براہِ کرم اپنا کنکشن چیک کریں۔", textAlign: TextAlign.center),
                             ),
-                            const SizedBox(height: 20),
                             ElevatedButton(
                               onPressed: () {
                                 setState(() => hasError = false);
                                 controller.reload();
                               },
-                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF7F2FA), foregroundColor: Colors.purple, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12)),
-                              child: const Text("دوبارہ لوڈ کریں", style: TextStyle(fontSize: 16)),
+                              child: const Text("دوبارہ کوشش کریں"),
                             )
                           ],
                         ),
@@ -95,7 +98,7 @@ jobs:
           }
           EOF
 
-          # 5. آئیکون اور سورس کوڈ کی سیٹنگ
+          # 5. پیکیجز اور آئیکون سیٹ اپ
           cat <<EOF > pubspec.yaml
           name: masail_ka_hal
           environment:
@@ -120,16 +123,16 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Upload Final APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail_ka_Hal_App
+          name: Masail_ka_Hal_Complete_App
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      - name: Sync Source Code to Repo
+      - name: Push All Files to GitHub
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add .
-          git commit -m "Complete source code with permissions and fix" || echo "No changes to commit"
+          git commit -m "Complete setup with GPS, Internet and Icon" || echo "No changes"
           git push origin main
