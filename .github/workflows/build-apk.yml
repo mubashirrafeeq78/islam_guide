@@ -22,7 +22,7 @@ jobs:
       - name: Setup Flutter (stable & available)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.16.10'   # stable version available in Actions
+          flutter-version: '3.13.10'   # fully supported on GitHub Actions
           channel: 'stable'
 
       - name: Create Flutter Project + Add WebView
@@ -37,13 +37,13 @@ jobs:
           version: 1.0.0+1
 
           environment:
-            sdk: '>=3.2.0 <4.0.0'
+            sdk: '>=3.1.0 <4.0.0'
 
           dependencies:
             flutter:
               sdk: flutter
             webview_flutter: ^4.8.0
-            geolocator: ^11.1.0
+            geolocator: ^10.0.2
 
           flutter:
             uses-material-design: true
