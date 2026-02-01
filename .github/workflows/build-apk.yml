@@ -1,4 +1,4 @@
-name: Build Flutter APK - Masail ka Hal
+name: Build Flutter APK + Push Source - Masail ka Hal
 
 on:
   workflow_dispatch:
@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true  # یہ ضروری ہے auto push کے لیے
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -135,3 +137,12 @@ jobs:
         with:
           name: Masail-ka-Hal-APK
           path: masail_ka_hal/build/app/outputs/flutter-apk/*.apk
+
+      - name: Commit & Push generated Flutter project
+        run: |
+          cd masail_ka_hal
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Add generated Flutter project"
+          git push origin HEAD:main || echo "No changes to commit"
