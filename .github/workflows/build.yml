@@ -1,17 +1,69 @@
-name: Build APK
+name: Build APK From Scratch
 on: [push]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - run: flutter pub get
-      - run: flutter build apk --release
-      - name: Upload APK
+
+      - name: Recreate Project Files (Auto-Script)
+        run: |
+          # 1. پروجیکٹ کا ڈھانچہ بنانا
+          flutter create . --project-name masail_ka_hal --org com.mubashir --force
+          
+          # 2. pubspec.yaml کو آپ کی ضرورت کے مطابق لکھنا
+          cat <<EOF > pubspec.yaml
+          name: masail_ka_hal
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+          dependencies:
+            flutter:
+              sdk: flutter
+            webview_flutter: ^4.4.2
+          flutter:
+            uses-material-design: true
+          EOF
+
+          # 3. مین براؤزر کوڈ بنانا (lib/main.dart)
+          mkdir -p lib
+          cat <<EOF > lib/main.dart
+          import 'package:flutter/material.dart';
+          import 'package:webview_flutter/webview_flutter.dart';
+          void main() => runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: Scaffold(body: SafeArea(child: SecureBrowser()))));
+          class SecureBrowser extends StatefulWidget {
+            const SecureBrowser({super.key});
+            @override
+            State<SecureBrowser> createState() => _SecureBrowserState();
+          }
+          class _SecureBrowserState extends State<SecureBrowser> {
+            late final WebViewController controller;
+            @override
+            void initState() {
+              super.initState();
+              controller = WebViewController()
+                ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
+            }
+            @override
+            Widget build(BuildContext context) {
+              return WebViewWidget(controller: controller);
+            }
+          }
+          EOF
+
+      - name: Build APK
+        run: |
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload Final APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail_ka_Hal_Final
+          name: Masail_ka_Hal_App
           path: build/app/outputs/flutter-apk/app-release.apk
