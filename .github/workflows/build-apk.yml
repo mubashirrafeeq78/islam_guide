@@ -19,10 +19,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter (latest stable for Dart 3.5+)
+      - name: Setup Flutter (stable & available)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.5'   # latest stable with Dart 3.5+
+          flutter-version: '3.16.10'   # stable version available in Actions
           channel: 'stable'
 
       - name: Create Flutter Project + Add WebView
@@ -37,13 +37,13 @@ jobs:
           version: 1.0.0+1
 
           environment:
-            sdk: '>=3.5.0 <4.0.0'
+            sdk: '>=3.2.0 <4.0.0'
 
           dependencies:
             flutter:
               sdk: flutter
-            webview_flutter: ^4.13.1
-            geolocator: ^14.0.2
+            webview_flutter: ^4.8.0
+            geolocator: ^11.1.0
 
           flutter:
             uses-material-design: true
