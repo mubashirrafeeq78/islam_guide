@@ -1,4 +1,4 @@
-name: Build APK From Scratch
+name: Final Build Masail ka Hal
 on: [push]
 
 jobs:
@@ -12,12 +12,12 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Auto Create Project and Files
+      - name: Auto Generate Source Code and Icon
         run: |
-          # پروجیکٹ بنانا (بغیر کسی ایرر کے)
-          flutter create . --project-name masail_ka_hal --org com.mubashir
+          # 1. پروجیکٹ بنانا اور سورس کوڈ کو مکمل کرنا
+          flutter create . --project-name masail_ka_hal --org com.mubashir --force
           
-          # pubspec.yaml کو درست کرنا
+          # 2. ان تمام فائلوں کو لکھنا جو آپ کو GitHub پر نظر آنی چاہئیں
           cat <<EOF > pubspec.yaml
           name: masail_ka_hal
           environment:
@@ -26,44 +26,89 @@ jobs:
             flutter:
               sdk: flutter
             webview_flutter: ^4.4.2
+          dev_dependencies:
+            flutter_launcher_icons: ^0.13.1
+          
+          flutter_launcher_icons:
+            android: true
+            ios: true
+            image_path: "icon.png"
+          
           flutter:
             uses-material-design: true
           EOF
 
-          # lib/main.dart بنانا
+          # 3. خوبصورت ایرر پیج اور صحیح URL کے ساتھ مین کوڈ
           mkdir -p lib
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          void main() => runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: Scaffold(body: SafeArea(child: SecureBrowser()))));
+
+          void main() => runApp(const MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: SecureBrowser(),
+          ));
+
           class SecureBrowser extends StatefulWidget {
             const SecureBrowser({super.key});
             @override
             State<SecureBrowser> createState() => _SecureBrowserState();
           }
+
           class _SecureBrowserState extends State<SecureBrowser> {
             late final WebViewController controller;
+            bool hasError = false;
+
             @override
             void initState() {
               super.initState();
               controller = WebViewController()
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..setBackgroundColor(Colors.white)
+                ..setNavigationDelegate(NavigationDelegate(
+                  onWebResourceError: (error) => setState(() => hasError = true),
+                ))
                 ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
             }
+
             @override
             Widget build(BuildContext context) {
-              return WebViewWidget(controller: controller);
+              return Scaffold(
+                body: SafeArea(
+                  child: hasError 
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.wifi_off, size: 80, color: Colors.grey),
+                            const SizedBox(height: 20),
+                            const Text("انٹرنیٹ کا مسئلہ ہے یا سرور دستیاب نہیں", style: TextStyle(fontSize: 18)),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() => hasError = false);
+                                controller.reload();
+                              },
+                              child: const Text("دوبارہ کوشش کریں"),
+                            )
+                          ],
+                        ),
+                      )
+                    : WebViewWidget(controller: controller),
+                ),
+              );
             }
           }
           EOF
 
-      - name: Build APK
-        run: |
+          # 4. ایپ کا آئیکون سیٹ کرنا
           flutter pub get
-          flutter build apk --release --no-pub
+          flutter pub run flutter_launcher_icons
 
-      - name: Upload Final APK
+      - name: Build APK
+        run: flutter build apk --release --no-pub
+
+      - name: Upload APK and Source Code
         uses: actions/upload-artifact@v4
         with:
-          name: Masail_ka_Hal_App
+          name: Masail_ka_Hal_Final_Version
           path: build/app/outputs/flutter-apk/app-release.apk
