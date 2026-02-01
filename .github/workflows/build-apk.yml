@@ -40,8 +40,8 @@ jobs:
           dependencies:
             flutter:
               sdk: flutter
-            webview_flutter: ^4.4.2
-            geolocator: ^10.1.0
+            webview_flutter: ^4.8.0
+            geolocator: ^14.0.2
 
           flutter:
             uses-material-design: true
@@ -103,6 +103,13 @@ jobs:
             }
           }
           EOF
+
+      - name: Update Android SDK + Gradle for compileSdkVersion 34
+        run: |
+          cd masail_ka_hal
+          sed -i 's/compileSdkVersion 33/compileSdkVersion 34/' android/app/build.gradle
+          sed -i 's/targetSdkVersion 33/targetSdkVersion 34/' android/app/build.gradle
+          sed -i 's/classpath("com.android.tools.build:gradle:7.3.0")/classpath("com.android.tools.build:gradle:8.2.0")/' android/build.gradle || true
 
       - name: Android permissions + icon
         run: |
