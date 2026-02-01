@@ -1,9 +1,11 @@
-name: Final Build Masail ka Hal
+name: Masail ka Hal Final Fix
 on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # سورس کوڈ واپس لکھنے کی اجازت
     steps:
       - uses: actions/checkout@v4
 
@@ -12,33 +14,13 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Auto Generate Source Code and Icon
+      - name: Generate Complete Source Code & Icons
         run: |
-          # 1. پروجیکٹ بنانا اور سورس کوڈ کو مکمل کرنا
-          flutter create . --project-name masail_ka_hal --org com.mubashir --force
+          # 1. پرانی فائلیں صاف کر کے مکمل ڈھانچہ بنانا
+          rm -rf * .github
+          flutter create . --project-name masail_ka_hal --org com.mubashir
           
-          # 2. ان تمام فائلوں کو لکھنا جو آپ کو GitHub پر نظر آنی چاہئیں
-          cat <<EOF > pubspec.yaml
-          name: masail_ka_hal
-          environment:
-            sdk: '>=3.0.0 <4.0.0'
-          dependencies:
-            flutter:
-              sdk: flutter
-            webview_flutter: ^4.4.2
-          dev_dependencies:
-            flutter_launcher_icons: ^0.13.1
-          
-          flutter_launcher_icons:
-            android: true
-            ios: true
-            image_path: "icon.png"
-          
-          flutter:
-            uses-material-design: true
-          EOF
-
-          # 3. خوبصورت ایرر پیج اور صحیح URL کے ساتھ مین کوڈ
+          # 2. درست URL اور خوبصورت ایرر ہینڈلنگ والا کوڈ
           mkdir -p lib
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
@@ -66,7 +48,10 @@ jobs:
                 ..setJavaScriptMode(JavaScriptMode.unrestricted)
                 ..setBackgroundColor(Colors.white)
                 ..setNavigationDelegate(NavigationDelegate(
-                  onWebResourceError: (error) => setState(() => hasError = true),
+                  onWebResourceError: (error) {
+                    debugPrint("Error: \$error");
+                    setState(() => hasError = true);
+                  },
                 ))
                 ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
             }
@@ -80,15 +65,20 @@ jobs:
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.wifi_off, size: 80, color: Colors.grey),
+                            const Icon(Icons.signal_wifi_connected_no_internet_4, size: 80, color: Colors.blueGrey),
                             const SizedBox(height: 20),
-                            const Text("انٹرنیٹ کا مسئلہ ہے یا سرور دستیاب نہیں", style: TextStyle(fontSize: 18)),
-                            ElevatedButton(
+                            const Text("رابطہ منقطع ہے", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                            const Padding(
+                              padding: EdgeInsets.all(15),
+                              child: Text("براہِ کرم اپنا انٹرنیٹ کنکشن چیک کریں اور دوبارہ کوشش کریں", textAlign: TextAlign.center),
+                            ),
+                            ElevatedButton.icon(
                               onPressed: () {
                                 setState(() => hasError = false);
                                 controller.reload();
                               },
-                              child: const Text("دوبارہ کوشش کریں"),
+                              icon: const Icon(Icons.refresh),
+                              label: const Text("دوبارہ لوڈ کریں"),
                             )
                           ],
                         ),
@@ -100,15 +90,36 @@ jobs:
           }
           EOF
 
-          # 4. ایپ کا آئیکون سیٹ کرنا
+          # 3. آئیکون سیٹ اپ
+          cat <<EOF > pubspec.yaml
+          name: masail_ka_hal
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+          dependencies:
+            flutter:
+              sdk: flutter
+            webview_flutter: ^4.4.2
+          dev_dependencies:
+            flutter_launcher_icons: ^0.13.1
+          flutter_launcher_icons:
+            android: true
+            ios: true
+            image_path: "icon.png"
+          flutter:
+            uses-material-design: true
+          EOF
+          
+          # اگر آئیکون موجود ہو تو اسے ری-جنریٹ کرنا
           flutter pub get
-          flutter pub run flutter_launcher_icons
+          if [ -f "icon.png" ]; then
+            flutter pub run flutter_launcher_icons
+          fi
 
       - name: Build APK
-        run: flutter build apk --release --no-pub
+        run: flutter build apk --release
 
-      - name: Upload APK and Source Code
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail_ka_Hal_Final_Version
+          name: Masail_ka_Hal_App
           path: build/app/outputs/flutter-apk/app-release.apk
