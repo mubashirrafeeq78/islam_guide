@@ -12,12 +12,12 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Recreate Project Files (Auto-Script)
+      - name: Auto Create Project and Files
         run: |
-          # 1. پروجیکٹ کا ڈھانچہ بنانا
-          flutter create . --project-name masail_ka_hal --org com.mubashir --force
+          # پروجیکٹ بنانا (بغیر کسی ایرر کے)
+          flutter create . --project-name masail_ka_hal --org com.mubashir
           
-          # 2. pubspec.yaml کو آپ کی ضرورت کے مطابق لکھنا
+          # pubspec.yaml کو درست کرنا
           cat <<EOF > pubspec.yaml
           name: masail_ka_hal
           environment:
@@ -30,7 +30,7 @@ jobs:
             uses-material-design: true
           EOF
 
-          # 3. مین براؤزر کوڈ بنانا (lib/main.dart)
+          # lib/main.dart بنانا
           mkdir -p lib
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
@@ -60,7 +60,7 @@ jobs:
       - name: Build APK
         run: |
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --no-pub
 
       - name: Upload Final APK
         uses: actions/upload-artifact@v4
