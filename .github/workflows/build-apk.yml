@@ -11,7 +11,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          persist-credentials: true  # یہ ضروری ہے auto push کے لیے
+          persist-credentials: true  # ضروری ہے auto push کے لیے
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -19,10 +19,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Setup Flutter (latest stable for Dart 3.5+)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.16.9'
+          flutter-version: '3.27.5'   # latest stable with Dart 3.5+
           channel: 'stable'
 
       - name: Create Flutter Project + Add WebView
@@ -37,12 +37,12 @@ jobs:
           version: 1.0.0+1
 
           environment:
-            sdk: '>=3.0.0 <4.0.0'
+            sdk: '>=3.5.0 <4.0.0'
 
           dependencies:
             flutter:
               sdk: flutter
-            webview_flutter: ^4.8.0
+            webview_flutter: ^4.13.1
             geolocator: ^14.0.2
 
           flutter:
