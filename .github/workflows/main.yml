@@ -1,4 +1,4 @@
-name: Final Final Success Build
+name: Guaranteed Success Build
 on:
   push:
     branches: [ main ]
@@ -22,50 +22,64 @@ jobs:
         with:
           flutter-version: '3.24.0'
 
-      - name: Fix Kotlin in New Template
+      - name: Bulletproof Build Process
         run: |
-          # 1. مکمل صفائی
+          # 1. پرانا کچرا صاف کریں
           rm -rf android .idea
           
-          # 2. نیا پروجیکٹ بنانا
+          # 2. نیا صاف پروجیکٹ بنائیں
           flutter create --platforms=android --project-name=masail_ka_hal .
           
-          # 3. نئے طریقے کے مطابق Kotlin ورژن ٹھیک کرنا (Settings.gradle میں)
-          # یہ وہ جگہ ہے جہاں اب فلٹر ورژن محفوظ کرتا ہے
-          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22" apply false/g' android/settings.gradle
+          # 3. Kotlin ورژن کو settings.gradle میں ہارڈ کوڈ کریں (1.9.10 سب سے محفوظ ہے)
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.10" apply false/g' android/settings.gradle
           
-          # 4. اینڈرائیڈ SDK ورژن کو 35 پر سیٹ کرنا (جیسا کہ لاگ میں مانگا گیا تھا)
-          sed -i 's/compileSdk = .*/compileSdk = 35/g' android/app/build.gradle
+          # 4. اینڈرائیڈ SDK 34 استعمال کریں (تاکہ ریسورس لنکنگ ایرر نہ آئے)
+          sed -i 's/compileSdk = .*/compileSdk = 34/g' android/app/build.gradle
           
-          # 5. ضروری پیکیجز
-          flutter pub add webview_flutter webview_flutter_android permission_handler location
+          # 5. پیکیجز شامل کریں
+          flutter pub add webview_flutter webview_flutter_android
           
-          # 6. ایپ کوڈ
+          # 6. مین کوڈ (صرف ویب ویو کے لیے، تاکہ لوکیشن کی وجہ سے بلڈ نہ رکے)
           cat <<EOF > lib/main.dart
           import 'package:flutter/material.dart';
           import 'package:webview_flutter/webview_flutter.dart';
-          void main() => runApp(MaterialApp(
+
+          void main() => runApp(const MaterialApp(
             debugShowCheckedModeBanner: false,
             home: Scaffold(
               body: SafeArea(
-                child: WebViewWidget(
-                  controller: WebViewController()
-                    ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                    ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php')),
-                ),
+                child: WebApp(),
               ),
             ),
           ));
+
+          class WebApp extends StatefulWidget {
+            const WebApp({super.key});
+            @override State<WebApp> createState() => _WebAppState();
+          }
+
+          class _WebAppState extends State<WebApp> {
+            late final WebViewController _controller;
+            @override
+            void initState() {
+              super.initState();
+              _controller = WebViewController()
+                ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                ..loadRequest(Uri.parse('https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php'));
+            }
+            @override
+            Widget build(BuildContext context) => WebViewWidget(controller: _controller);
+          }
           EOF
 
-          # 7. انٹرنیٹ پرمیشن
+          # 7. انٹرنیٹ پرمیشن شامل کریں
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
-          # 8. بلڈ
+          # 8. کلین بلڈ
           flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Success-APK
+          name: Masail-Final-APK
           path: build/app/outputs/flutter-apk/app-release.apk
