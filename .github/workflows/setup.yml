@@ -2,18 +2,31 @@ name: Build Masail ka Hal APK
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch: # اس سے آپ بٹن دبا کر بھی رن کر سکیں گے
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.10.8' # آپ کا مطلوبہ ورژن
           channel: 'stable'
-      - run: flutter pub get
-      - run: flutter build apk --release
+      
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Generate App Icons
+        run: flutter pub run flutter_launcher_icons
+
+      - name: Build APK
+        run: flutter build apk --release
+
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # جدید ترین ورژن
         with:
           name: Masail-ka-Hal-APK
           path: build/app/outputs/flutter-apk/app-release.apk
