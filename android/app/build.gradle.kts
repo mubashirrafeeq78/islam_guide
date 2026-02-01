@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.masail.hal.islam_guide"
+    namespace = "com.masail.hal.masail_ka_hal"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.masail.hal.islam_guide"
+        applicationId = "com.masail.hal.masail_ka_hal"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

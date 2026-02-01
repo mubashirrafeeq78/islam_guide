@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.masail.hal" "\0"
-            VALUE "FileDescription", "islam_guide" "\0"
+            VALUE "FileDescription", "masail_ka_hal" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "islam_guide" "\0"
+            VALUE "InternalName", "masail_ka_hal" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.masail.hal. All rights reserved." "\0"
-            VALUE "OriginalFilename", "islam_guide.exe" "\0"
-            VALUE "ProductName", "islam_guide" "\0"
+            VALUE "OriginalFilename", "masail_ka_hal.exe" "\0"
+            VALUE "ProductName", "masail_ka_hal" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
