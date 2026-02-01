@@ -13,11 +13,13 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' # یہ خود بخود لیٹسٹ ورژن اٹھا لے گا
+          channel: 'stable'
       
-      - name: Install Dependencies
-        run: flutter pub get
-
+      - name: Force Install Dependencies
+        run: |
+          flutter pub get
+          flutter pub add flutter_launcher_icons --dev
+      
       - name: Generate App Icons
         run: flutter pub run flutter_launcher_icons
 
