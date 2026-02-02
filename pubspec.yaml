@@ -1,7 +1,6 @@
 name: masail_ka_hal
-description: A professional WebView app with GPS and Error handling.
+description: Professional WebView App
 version: 1.0.0+1
-
 environment:
   sdk: ">=3.0.0 <4.0.0"
 
@@ -10,6 +9,7 @@ dependencies:
     sdk: flutter
   flutter_inappwebview: ^6.0.0
   permission_handler: ^11.0.0
+  location: ^5.0.3 # GPS کو زبردستی آن کرنے کے لیے
   cupertino_icons: ^1.0.2
 
 dev_dependencies:
@@ -17,10 +17,10 @@ dev_dependencies:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
 
-flutter_icons:
+flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "icon.png"
+  image_path: "icon.png" # یقینی بنائیں کہ icon.png آپ کی مین ڈائریکٹری میں موجود ہے
   adaptive_icon_background: "#ffffff"
 
 flutter:
