@@ -1,4 +1,4 @@
-name: Build Compact APK
+name: Build Final Masail ka Hal
 on:
   push:
     branches: [ "main" ]
@@ -15,14 +15,19 @@ jobs:
         with:
           channel: 'stable'
       
-      - name: Install Dependencies
-        run: flutter pub get
+      - name: Clean & Get Packages
+        run: |
+          flutter clean
+          flutter pub get
+      
+      - name: Force Generate Icons
+        run: flutter pub run flutter_launcher_icons
 
-      - name: Build Split APK (Small Size)
+      - name: Build Optimized APK
         run: flutter build apk --release --split-per-abi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Masail-ka-Hal-Small-APK
+          name: Masail-ka-Hal-Final
           path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
