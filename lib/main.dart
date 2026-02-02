@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // ایپ کھلتے ہی پرمیشن مانگنا
   await Permission.location.request();
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -19,7 +20,6 @@ class WebViewApp extends StatefulWidget {
 
 class _WebViewAppState extends State<WebViewApp> {
   InAppWebViewController? webViewController;
-  bool isError = false;
 
   @override
   Widget build(BuildContext context) {
@@ -32,17 +32,20 @@ class _WebViewAppState extends State<WebViewApp> {
           ),
           initialSettings: InAppWebViewSettings(
             javaScriptEnabled: true,
-            geolocationEnabled: true, // GPS فعال
+            geolocationEnabled: true, 
             domStorageEnabled: true,
+            allowFileAccessFromFileURLs: true,
+            allowUniversalAccessFromFileURLs: true,
             mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
           ),
           onWebViewCreated: (controller) => webViewController = controller,
-          // یہ حصہ آپ کی PHP فائل کو لوکیشن فراہم کرے گا
+          // یہ فنکشن ویب سائٹ کی ریکوئسٹ کو ہینڈل کرتا ہے
           onGeolocationPermissionsShowPrompt: (controller, origin) async {
-            return GeolocationPermissionShowPromptResponse(origin: origin, allow: true, retain: true);
-          },
-          onReceivedError: (controller, request, error) {
-            setState(() { isError = true; });
+            return GeolocationPermissionShowPromptResponse(
+              origin: origin, 
+              allow: true, 
+              retain: true
+            );
           },
         ),
       ),
