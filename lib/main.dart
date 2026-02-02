@@ -6,7 +6,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Permission.location.request();
   runApp(const MaterialApp(
-    title: "Masail ka Hal",
+    title: "Masail ka Hal", // ایپ کا صحیح نام
     debugShowCheckedModeBanner: false,
     home: WebViewApp(),
   ));
@@ -27,75 +27,50 @@ class _WebViewAppState extends State<WebViewApp> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Masail ka Hal"),
-        backgroundColor: Colors.green,
-        centerTitle: true,
-      ),
-      body: Stack(
-        children: [
-          // ویب ویو
-          InAppWebView(
-            initialUrlRequest: URLRequest(
-              url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
+      // یہاں سے AppBar (سبز پٹی) ختم کر دی گئی ہے
+      body: SafeArea(
+        child: Stack(
+          children: [
+            InAppWebView(
+              initialUrlRequest: URLRequest(
+                url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
+              ),
+              initialSettings: InAppWebViewSettings(
+                javaScriptEnabled: true,
+                geolocationEnabled: true,
+                useWideViewPort: true,
+                loadWithOverviewMode: true,
+                domStorageEnabled: true, // ویب سائٹ ڈیٹا لوڈ کرنے کے لیے ضروری
+              ),
+              onWebViewCreated: (controller) => webViewController = controller,
+              onLoadStart: (controller, url) => setState(() { isLoading = true; isError = false; }),
+              onLoadStop: (controller, url) => setState(() { isLoading = false; }),
+              onReceivedError: (controller, request, error) => setState(() { isError = true; isLoading = false; }),
             ),
-            initialSettings: InAppWebViewSettings(
-              javaScriptEnabled: true,
-              geolocationEnabled: true,
-            ),
-            onWebViewCreated: (controller) => webViewController = controller,
-            onLoadStart: (controller, url) {
-              setState(() {
-                isLoading = true;
-                isError = false;
-              });
-            },
-            onLoadStop: (controller, url) {
-              setState(() {
-                isLoading = false;
-              });
-            },
-            onReceivedError: (controller, request, error) {
-              setState(() {
-                isError = true;
-                isLoading = false;
-              });
-            },
-          ),
 
-          // لوڈنگ اسکرین
-          if (isLoading)
-            const Center(child: CircularProgressIndicator(color: Colors.green)),
+            if (isLoading)
+              const Center(child: CircularProgressIndicator(color: Colors.green)),
 
-          // خوبصورت ایرر اسکرین
-          if (isError)
-            Container(
-              color: Colors.white,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.wifi_off, size: 80, color: Colors.grey),
-                    const SizedBox(height: 20),
-                    const Text(
-                      "انٹرنیٹ کنکشن موجود نہیں ہے",
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text("براہ کرم اپنا انٹرنیٹ چیک کریں اور دوبارہ کوشش کریں"),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                      onPressed: () {
-                        webViewController?.reload();
-                      },
-                      child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
+            if (isError)
+              Container(
+                color: Colors.white,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.wifi_off, size: 80, color: Colors.grey),
+                      const SizedBox(height: 20),
+                      const Text("انٹرنیٹ کا مسئلہ ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      ElevatedButton(
+                        onPressed: () => webViewController?.reload(),
+                        child: const Text("دوبارہ کوشش کریں"),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
