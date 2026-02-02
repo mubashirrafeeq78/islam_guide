@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:location/location.dart' as loc;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MaterialApp(
+    title: "Masail ka Hal",
     debugShowCheckedModeBanner: false,
     home: WebViewApp(),
   ));
@@ -22,21 +22,15 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
-  // GPS کو زبردستی آن کرنے والا فنکشن
-  Future<void> enableGPS() async {
-    loc.Location location = loc.Location();
-    bool serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
-      if (!serviceEnabled) return;
-    }
-    await Permission.location.request();
-  }
-
   @override
   void initState() {
     super.initState();
-    enableGPS();
+    _checkPermissions();
+  }
+
+  // ایپ کھلتے ہی لوکیشن پرمیشن اور GPS مانگنے کے لیے
+  Future<void> _checkPermissions() async {
+    await Permission.location.request();
   }
 
   @override
@@ -52,21 +46,24 @@ class _WebViewAppState extends State<WebViewApp> {
               ),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
-                geolocationEnabled: true,
+                geolocationEnabled: true, // ویب سائٹ کے لیے GPS فعال
                 domStorageEnabled: true,
+                mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
               ),
-              onWebViewCreated: (c) => webViewController = c,
-              onLoadStart: (c, u) => setState(() { isLoading = true; isError = false; }),
-              onLoadStop: (c, u) => setState(() { isLoading = false; }),
-              onReceivedError: (c, r, e) => setState(() { isError = true; isLoading = false; }),
-              onGeolocationPermissionsShowPrompt: (c, o) async {
-                return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
+              onWebViewCreated: (controller) => webViewController = controller,
+              onLoadStart: (controller, url) => setState(() { isLoading = true; isError = false; }),
+              onLoadStop: (controller, url) => setState(() { isLoading = false; }),
+              onReceivedError: (controller, request, error) => setState(() { isError = true; isLoading = false; }),
+              
+              // یہ وہ فنکشن ہے جو براؤزر کی طرح لوکیشن پاپ اپ دکھائے گا
+              onGeolocationPermissionsShowPrompt: (controller, origin) async {
+                return GeolocationPermissionShowPromptResponse(origin: origin, allow: true, retain: true);
               },
             ),
-            
+
             if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
 
-            // پروفیشنل ایرر اسکرین (بدصورت اینڈرائیڈ ایرر کی جگہ)
+            // پروفیشنل کسٹم ایرر اسکرین
             if (isError)
               Container(
                 color: Colors.white,
@@ -74,15 +71,12 @@ class _WebViewAppState extends State<WebViewApp> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.signal_wifi_off, size: 100, color: Colors.green),
+                      const Icon(Icons.wifi_off, size: 80, color: Colors.green),
                       const SizedBox(height: 20),
-                      const Text("رابطہ منقطع ہے", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
-                      const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Text("براہِ کرم اپنا انٹرنیٹ چیک کریں یا دوبارہ کوشش کریں۔", textAlign: TextAlign.center),
-                      ),
+                      const Text("انٹرنیٹ دستیاب نہیں ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                      const SizedBox(height: 30),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                         onPressed: () => webViewController?.reload(),
                         child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white)),
                       ),
