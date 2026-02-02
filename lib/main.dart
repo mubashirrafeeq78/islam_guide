@@ -39,7 +39,7 @@ class _WebViewAppState extends State<WebViewApp> {
             mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
           ),
           onWebViewCreated: (controller) => webViewController = controller,
-          // یہ فنکشن ویب سائٹ کی ریکوئسٹ کو ہینڈل کرتا ہے
+          // ویب سائٹ کی لوکیشن ریکوئسٹ کو ہینڈل کرنا
           onGeolocationPermissionsShowPrompt: (controller, origin) async {
             return GeolocationPermissionShowPromptResponse(
               origin: origin, 
