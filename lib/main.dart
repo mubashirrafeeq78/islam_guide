@@ -61,7 +61,7 @@ class _WebViewAppState extends State<WebViewApp> {
                 },
               ),
               
-              if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
+              if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.grey)),
 
               if (isError)
                 Container(
@@ -72,28 +72,28 @@ class _WebViewAppState extends State<WebViewApp> {
                     children: [
                       const Text(
                         "LOADING ERROR",
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.black, color: Colors.red, letterSpacing: 1.2),
+                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red),
                       ),
                       const SizedBox(height: 40),
                       Container(
                         padding: const EdgeInsets.all(15),
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]),
-                        child: const Icon(Icons.sync, size: 60, color: Colors.blueGrey),
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: const Icon(Icons.refresh, size: 60, color: Colors.blueGrey),
                       ),
                       const SizedBox(height: 30),
-                      const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey),
+                      const Icon(Icons.person, size: 100, color: Colors.blueGrey),
                       const SizedBox(height: 40),
-                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey, letterSpacing: 1)),
+                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                       const SizedBox(height: 15),
                       InkWell(
                         onTap: () => webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://wa.me/923140143585"))),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)]),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.chat, color: Colors.green, size: 28),
+                              const Icon(Icons.message, color: Colors.green, size: 28),
                               const SizedBox(width: 10),
                               const Text("00923140143585", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                             ],
@@ -102,9 +102,9 @@ class _WebViewAppState extends State<WebViewApp> {
                       ),
                       const SizedBox(height: 30),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
                         onPressed: () => webViewController?.reload(),
-                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
