@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,14 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
+  // واٹس ایپ کھولنے کا فنکشن
+  void _openWhatsApp() async {
+    final Uri url = Uri.parse("https://wa.me/923140143585");
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      debugPrint("WhatsApp could not be opened");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -31,6 +40,11 @@ class _WebViewAppState extends State<WebViewApp> {
           canPop: false,
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
+            if (isError) {
+              setState(() => isError = false);
+              webViewController?.reload();
+              return;
+            }
             if (webViewController != null && await webViewController!.canGoBack()) {
               webViewController!.goBack();
             } else {
@@ -47,21 +61,21 @@ class _WebViewAppState extends State<WebViewApp> {
                   javaScriptEnabled: true,
                   geolocationEnabled: true,
                   domStorageEnabled: true,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
                 ),
                 onWebViewCreated: (c) => webViewController = c,
-                onLoadStart: (c, u) => setState(() { isLoading = true; isError = false; }),
+                onLoadStart: (c, u) {
+                  if (u.toString() != "about:blank") {
+                    setState(() { isLoading = true; isError = false; });
+                  }
+                },
                 onLoadStop: (c, u) => setState(() { isLoading = false; }),
                 onReceivedError: (c, r, e) {
-                  c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
+                  c.stopLoading(); // اسکرین کو غائب ہونے سے روکنے کے لیے
                   setState(() { isError = true; isLoading = false; });
-                },
-                onGeolocationPermissionsShowPrompt: (c, o) async {
-                  return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
                 },
               ),
               
-              if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.grey)),
+              if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
 
               if (isError)
                 Container(
@@ -74,37 +88,54 @@ class _WebViewAppState extends State<WebViewApp> {
                         "LOADING ERROR",
                         style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red),
                       ),
-                      const SizedBox(height: 40),
-                      Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                        child: const Icon(Icons.refresh, size: 60, color: Colors.blueGrey),
-                      ),
+                      const SizedBox(height: 50),
+                      
+                      // ہیلپ سپورٹ ائیکون (براہ راست روٹ سے)
+                      Image.asset("support.png", width: 140, height: 140, 
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey)),
+                      
                       const SizedBox(height: 30),
-                      const Icon(Icons.person, size: 100, color: Colors.blueGrey),
-                      const SizedBox(height: 40),
                       const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 20),
+
+                      // واٹس ایپ بٹن
                       InkWell(
-                        onTap: () => webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://wa.me/923140143585"))),
+                        onTap: _openWhatsApp,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
+                          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white, 
+                            borderRadius: BorderRadius.circular(40),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]
+                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.message, color: Colors.green, size: 28),
-                              const SizedBox(width: 10),
-                              const Text("00923140143585", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                              // واٹس ایپ ائیکون (براہ راست روٹ سے)
+                              Image.asset("whatsapp.png", width: 32, height: 32,
+                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.chat, color: Colors.green)),
+                              const SizedBox(width: 15),
+                              const Text(
+                                "00923140143585", 
+                                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.blue) // نیلا کلر
+                              ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 60),
+                      
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
-                        onPressed: () => webViewController?.reload(),
-                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueGrey,
+                          padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))
+                        ),
+                        onPressed: () {
+                          setState(() => isError = false);
+                          webViewController?.reload();
+                        },
+                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
