@@ -1,6 +1,7 @@
 name: masail_ka_hal
 description: Professional WebView App
 version: 1.0.0+1
+
 environment:
   sdk: ">=3.0.0 <4.0.0"
 
@@ -9,7 +10,8 @@ dependencies:
     sdk: flutter
   flutter_inappwebview: ^6.0.0
   permission_handler: ^11.0.0
-  location: ^5.0.3 # GPS کو زبردستی آن کرنے کے لیے
+  location: ^5.0.3
+  url_launcher: ^6.2.0 # واٹس ایپ اور لنکس کھولنے کے لیے لازمی ہے
   cupertino_icons: ^1.0.2
 
 dev_dependencies:
@@ -20,8 +22,13 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "icon.png" # یقینی بنائیں کہ icon.png آپ کی مین ڈائریکٹری میں موجود ہے
+  image_path: "icon.png"
   adaptive_icon_background: "#ffffff"
 
 flutter:
   uses-material-design: true
+
+  # یہاں ہم نے آپ کے آئیکونز کو رجسٹر کیا ہے
+  assets:
+    - support.png
+    - whatsapp.png
