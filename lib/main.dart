@@ -86,7 +86,7 @@ class _WebViewAppState extends State<WebViewApp> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.whatsapp, color: Colors.green, size: 30),
+                            const Icon(Icons.chat, color: Colors.green, size: 30), // واٹس ایپ کی جگہ چیٹ آئیکون
                             const SizedBox(width: 10),
                             Text("03140143585", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
                           ],
