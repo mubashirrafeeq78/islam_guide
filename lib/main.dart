@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,11 +24,11 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
-  // واٹس ایپ کھولنے کا فنکشن
-  void _openWhatsApp() async {
+  // واٹس ایپ سلیکٹر فنکشن
+  Future<void> _openWhatsApp() async {
     final Uri url = Uri.parse("https://wa.me/923140143585");
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      debugPrint("WhatsApp could not be opened");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -36,19 +37,19 @@ class _WebViewAppState extends State<WebViewApp> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, result) async {
-            if (didPop) return;
+        child: WillPopScope(
+          onWillPop: () async {
+            // اگر ایرر اسکرین ہو یا ویب ہسٹری ختم ہو جائے تو ایپ بند کریں
             if (isError) {
-              setState(() => isError = false);
-              webViewController?.reload();
-              return;
+              SystemNavigator.pop(); 
+              return false;
             }
             if (webViewController != null && await webViewController!.canGoBack()) {
               webViewController!.goBack();
+              return false;
             } else {
-              if (context.mounted) Navigator.of(context).pop();
+              SystemNavigator.pop();
+              return false;
             }
           },
           child: Stack(
@@ -61,6 +62,7 @@ class _WebViewAppState extends State<WebViewApp> {
                   javaScriptEnabled: true,
                   geolocationEnabled: true,
                   domStorageEnabled: true,
+                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
                 ),
                 onWebViewCreated: (c) => webViewController = c,
                 onLoadStart: (c, u) {
@@ -70,8 +72,13 @@ class _WebViewAppState extends State<WebViewApp> {
                 },
                 onLoadStop: (c, u) => setState(() { isLoading = false; }),
                 onReceivedError: (c, r, e) {
-                  c.stopLoading(); // اسکرین کو غائب ہونے سے روکنے کے لیے
+                  // ویب ویو کو روک کر بلینک پیج لوڈ کریں تاکہ ڈومین نظر نہ آئے
+                  c.stopLoading();
+                  c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
                   setState(() { isError = true; isLoading = false; });
+                },
+                onGeolocationPermissionsShowPrompt: (c, o) async {
+                  return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
                 },
               ),
               
@@ -79,7 +86,7 @@ class _WebViewAppState extends State<WebViewApp> {
 
               if (isError)
                 Container(
-                  color: const Color(0xFFF1F4F8), 
+                  color: const Color(0xFFF1F4F8),
                   width: double.infinity,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -90,15 +97,15 @@ class _WebViewAppState extends State<WebViewApp> {
                       ),
                       const SizedBox(height: 50),
                       
-                      // ہیلپ سپورٹ ائیکون (براہ راست روٹ سے)
-                      Image.asset("support.png", width: 140, height: 140, 
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey)),
+                      // ہیلپ سپورٹ آئیکون
+                      Image.asset("support.png", width: 130, height: 130, 
+                        errorBuilder: (c, e, s) => const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey)),
                       
                       const SizedBox(height: 30),
                       const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                       const SizedBox(height: 20),
 
-                      // واٹس ایپ بٹن
+                      // واٹس ایپ بٹن (نیلا نمبر)
                       InkWell(
                         onTap: _openWhatsApp,
                         child: Container(
@@ -111,13 +118,12 @@ class _WebViewAppState extends State<WebViewApp> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // واٹس ایپ ائیکون (براہ راست روٹ سے)
                               Image.asset("whatsapp.png", width: 32, height: 32,
-                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.chat, color: Colors.green)),
+                                errorBuilder: (c, e, s) => const Icon(Icons.chat, color: Colors.green)),
                               const SizedBox(width: 15),
                               const Text(
                                 "00923140143585", 
-                                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.blue) // نیلا کلر
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue) 
                               ),
                             ],
                           ),
@@ -133,7 +139,7 @@ class _WebViewAppState extends State<WebViewApp> {
                         ),
                         onPressed: () {
                           setState(() => isError = false);
-                          webViewController?.reload();
+                          webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
                         },
                         child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
