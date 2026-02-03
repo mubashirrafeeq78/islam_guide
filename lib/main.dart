@@ -1,92 +1,62 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:permission_handler/permission_handler.dart';
+// اس حصے کو Stack کے اندر ریپلیس کریں
+children: [
+  InAppWebView(
+    initialUrlRequest: URLRequest(
+      url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
+    ),
+    initialSettings: InAppWebViewSettings(
+      javaScriptEnabled: true,
+      geolocationEnabled: true,
+      domStorageEnabled: true,
+    ),
+    onWebViewCreated: (c) => webViewController = c,
+    onLoadStart: (c, u) => setState(() { isLoading = true; isError = false; }),
+    onLoadStop: (c, u) => setState(() { isLoading = false; }),
+    // یہاں تبدیلی کی گئی ہے تاکہ ڈومین نظر نہ آئے
+    onReceivedError: (c, r, e) {
+      c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank"))); // ڈومین چھپانے کے لیے
+      setState(() { isError = true; isLoading = false; });
+    },
+    onGeolocationPermissionsShowPrompt: (c, o) async {
+      return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
+    },
+  ),
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MaterialApp(
-    title: "Masail ka Hal",
-    debugShowCheckedModeBanner: false,
-    home: WebViewApp(),
-  ));
-}
+  if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
 
-class WebViewApp extends StatefulWidget {
-  const WebViewApp({super.key});
-  @override
-  State<WebViewApp> createState() => _WebViewAppState();
-}
-
-class _WebViewAppState extends State<WebViewApp> {
-  InAppWebViewController? webViewController;
-  bool isError = false;
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkPermissions();
-  }
-
-  // ایپ کھلتے ہی لوکیشن پرمیشن اور GPS مانگنے کے لیے
-  Future<void> _checkPermissions() async {
-    await Permission.location.request();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            InAppWebView(
-              initialUrlRequest: URLRequest(
-                url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
-              ),
-              initialSettings: InAppWebViewSettings(
-                javaScriptEnabled: true,
-                geolocationEnabled: true, // ویب سائٹ کے لیے GPS فعال
-                domStorageEnabled: true,
-                mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-              ),
-              onWebViewCreated: (controller) => webViewController = controller,
-              onLoadStart: (controller, url) => setState(() { isLoading = true; isError = false; }),
-              onLoadStop: (controller, url) => setState(() { isLoading = false; }),
-              onReceivedError: (controller, request, error) => setState(() { isError = true; isLoading = false; }),
-              
-              // یہ وہ فنکشن ہے جو براؤزر کی طرح لوکیشن پاپ اپ دکھائے گا
-              onGeolocationPermissionsShowPrompt: (controller, origin) async {
-                return GeolocationPermissionShowPromptResponse(origin: origin, allow: true, retain: true);
-              },
+  if (isError)
+    Container(
+      color: Colors.white,
+      width: double.infinity,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off, size: 80, color: Colors.green),
+          const SizedBox(height: 20),
+          const Text("انٹرنیٹ دستیاب نہیں ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          // دوبارہ کوشش کا بٹن
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () => webViewController?.reload(),
+            child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(height: 40),
+          // واٹس ایپ ہیلپ سپورٹ
+          const Text("Help & Support", style: TextStyle(fontSize: 14, color: Colors.grey)),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: () => webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://wa.me/923140143585"))),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.whatsapp, color: Colors.green, size: 30),
+                const SizedBox(width: 10),
+                Text("03140143585", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green.shade800)),
+              ],
             ),
-
-            if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.green)),
-
-            // پروفیشنل کسٹم ایرر اسکرین
-            if (isError)
-              Container(
-                color: Colors.white,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.wifi_off, size: 80, color: Colors.green),
-                      const SizedBox(height: 20),
-                      const Text("انٹرنیٹ دستیاب نہیں ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                      const SizedBox(height: 30),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                        onPressed: () => webViewController?.reload(),
-                        child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
-}
+    ),
+],
