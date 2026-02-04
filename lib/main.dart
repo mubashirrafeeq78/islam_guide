@@ -24,11 +24,20 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
-  // واٹس ایپ سلیکٹر فنکشن
-  Future<void> _openWhatsApp() async {
-    final Uri url = Uri.parse("https://wa.me/923140143585");
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+  // واٹس ایپ سلیکٹر جو لازمی آپشن پوچھے گا
+  Future<void> _showAppChooser() async {
+    const String phone = "923140143585";
+    const String url = "https://wa.me/$phone";
+    
+    // ہم سسٹم کو بتائیں گے کہ یہ ایک بیرونی ٹاسک ہے تاکہ وہ چوائس دکھائے
+    final Uri _url = Uri.parse(url);
+    try {
+      await launchUrl(
+        _url,
+        mode: LaunchMode.externalNonBrowserApplication, // یہ براؤزر کے بجائے ایپس کو ترجیح دیتا ہے
+      );
+    } catch (e) {
+      await launchUrl(_url, mode: LaunchMode.platformDefault);
     }
   }
 
@@ -39,18 +48,22 @@ class _WebViewAppState extends State<WebViewApp> {
       body: SafeArea(
         child: WillPopScope(
           onWillPop: () async {
-            // اگر ایرر اسکرین ہو یا ویب ہسٹری ختم ہو جائے تو ایپ بند کریں
             if (isError) {
-              SystemNavigator.pop(); 
+              SystemChannels.platform.invokeMethod('SystemNavigator.pop');
               return false;
             }
-            if (webViewController != null && await webViewController!.canGoBack()) {
-              webViewController!.goBack();
-              return false;
-            } else {
-              SystemNavigator.pop();
-              return false;
+            
+            if (webViewController != null) {
+              if (await webViewController!.canGoBack()) {
+                webViewController!.goBack(); // اگر پیچھے پیج ہے تو پیچھے جاؤ
+                return false;
+              } else {
+                // اگر پیچھے کوئی پیج نہیں ہے (مین ڈیش بورڈ ہے) تو ایپ بند کرو
+                SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+                return false;
+              }
             }
+            return true;
           },
           child: Stack(
             children: [
@@ -62,6 +75,7 @@ class _WebViewAppState extends State<WebViewApp> {
                   javaScriptEnabled: true,
                   geolocationEnabled: true,
                   domStorageEnabled: true,
+                  useShouldOverrideUrlLoading: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
                 ),
                 onWebViewCreated: (c) => webViewController = c,
@@ -72,13 +86,9 @@ class _WebViewAppState extends State<WebViewApp> {
                 },
                 onLoadStop: (c, u) => setState(() { isLoading = false; }),
                 onReceivedError: (c, r, e) {
-                  // ویب ویو کو روک کر بلینک پیج لوڈ کریں تاکہ ڈومین نظر نہ آئے
                   c.stopLoading();
                   c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
                   setState(() { isError = true; isLoading = false; });
-                },
-                onGeolocationPermissionsShowPrompt: (c, o) async {
-                  return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
                 },
               ),
               
@@ -91,57 +101,35 @@ class _WebViewAppState extends State<WebViewApp> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        "LOADING ERROR",
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red),
-                      ),
+                      const Text("LOADING ERROR", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
                       const SizedBox(height: 50),
-                      
-                      // ہیلپ سپورٹ آئیکون
-                      Image.asset("support.png", width: 130, height: 130, 
-                        errorBuilder: (c, e, s) => const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey)),
-                      
+                      Image.asset("support.png", width: 130, height: 130, errorBuilder: (c, e, s) => const Icon(Icons.support_agent, size: 100)),
                       const SizedBox(height: 30),
-                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 20),
-
-                      // واٹس ایپ بٹن (نیلا نمبر)
                       InkWell(
-                        onTap: _openWhatsApp,
+                        onTap: _showAppChooser, // اب یہ فنکشن آپشن پوچھے گا
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white, 
-                            borderRadius: BorderRadius.circular(40),
-                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]
-                          ),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Image.asset("whatsapp.png", width: 32, height: 32,
-                                errorBuilder: (c, e, s) => const Icon(Icons.chat, color: Colors.green)),
+                              Image.asset("whatsapp.png", width: 32, height: 32, errorBuilder: (c, e, s) => const Icon(Icons.chat, color: Colors.green)),
                               const SizedBox(width: 15),
-                              const Text(
-                                "00923140143585", 
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue) 
-                              ),
+                              const Text("00923140143585", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
                             ],
                           ),
                         ),
                       ),
                       const SizedBox(height: 60),
-                      
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueGrey,
-                          padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))
-                        ),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
                         onPressed: () {
                           setState(() => isError = false);
                           webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
                         },
-                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
