@@ -6,7 +6,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Permission.location.request();
+  // لوکیشن کی پرمیشنز کو شروع میں ہی پکا کر لیں
+  await [
+    Permission.location,
+    Permission.locationWhenInUse,
+  ].request();
+  
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: WebViewApp(),
@@ -24,20 +29,23 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
-  // واٹس ایپ سلیکٹر جو لازمی آپشن پوچھے گا
-  Future<void> _showAppChooser() async {
-    const String phone = "923140143585";
-    const String url = "https://wa.me/$phone";
-    
-    // ہم سسٹم کو بتائیں گے کہ یہ ایک بیرونی ٹاسک ہے تاکہ وہ چوائس دکھائے
-    final Uri _url = Uri.parse(url);
+  // واٹس ایپ سلیکٹر کا سب سے طاقتور طریقہ
+  Future<void> _openWhatsAppChooser() async {
+    const String url = "https://wa.me/923140143585";
+    final Uri whatsappUri = Uri.parse(url);
+
     try {
-      await launchUrl(
-        _url,
-        mode: LaunchMode.externalNonBrowserApplication, // یہ براؤزر کے بجائے ایپس کو ترجیح دیتا ہے
+      // یہاں ہم جان بوجھ کر 'externalApplication' استعمال کر رہے ہیں تاکہ سسٹم چوائس دکھائے
+      final bool launched = await launchUrl(
+        whatsappUri,
+        mode: LaunchMode.externalApplication,
       );
+      if (!launched) {
+        throw 'Could not launch $url';
+      }
     } catch (e) {
-      await launchUrl(_url, mode: LaunchMode.platformDefault);
+      // اگر وہ کام نہ کرے تو متبادل طریقہ
+      await launchUrl(whatsappUri, mode: LaunchMode.platformDefault);
     }
   }
 
@@ -49,21 +57,16 @@ class _WebViewAppState extends State<WebViewApp> {
         child: WillPopScope(
           onWillPop: () async {
             if (isError) {
-              SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+              SystemNavigator.pop();
               return false;
             }
-            
-            if (webViewController != null) {
-              if (await webViewController!.canGoBack()) {
-                webViewController!.goBack(); // اگر پیچھے پیج ہے تو پیچھے جاؤ
-                return false;
-              } else {
-                // اگر پیچھے کوئی پیج نہیں ہے (مین ڈیش بورڈ ہے) تو ایپ بند کرو
-                SystemChannels.platform.invokeMethod('SystemNavigator.pop');
-                return false;
-              }
+            if (webViewController != null && await webViewController!.canGoBack()) {
+              webViewController!.goBack();
+              return false;
+            } else {
+              SystemNavigator.pop();
+              return false;
             }
-            return true;
           },
           child: Stack(
             children: [
@@ -73,9 +76,11 @@ class _WebViewAppState extends State<WebViewApp> {
                 ),
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
-                  geolocationEnabled: true,
+                  geolocationEnabled: true, // جی پی ایس کے لیے اہم
                   domStorageEnabled: true,
-                  useShouldOverrideUrlLoading: true,
+                  databaseEnabled: true,
+                  allowFileAccessFromFileURLs: true,
+                  allowUniversalAccessFromFileURLs: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
                 ),
                 onWebViewCreated: (c) => webViewController = c,
@@ -89,6 +94,10 @@ class _WebViewAppState extends State<WebViewApp> {
                   c.stopLoading();
                   c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
                   setState(() { isError = true; isLoading = false; });
+                },
+                // یہ وہ حصہ ہے جو ویب سائٹ کو جی پی ایس دیتا ہے
+                onGeolocationPermissionsShowPrompt: (c, o) async {
+                  return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
                 },
               ),
               
@@ -105,10 +114,10 @@ class _WebViewAppState extends State<WebViewApp> {
                       const SizedBox(height: 50),
                       Image.asset("support.png", width: 130, height: 130, errorBuilder: (c, e, s) => const Icon(Icons.support_agent, size: 100)),
                       const SizedBox(height: 30),
-                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                       const SizedBox(height: 20),
                       InkWell(
-                        onTap: _showAppChooser, // اب یہ فنکشن آپشن پوچھے گا
+                        onTap: _openWhatsAppChooser,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
