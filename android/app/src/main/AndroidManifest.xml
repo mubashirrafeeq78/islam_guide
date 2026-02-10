@@ -48,7 +48,3 @@
             android:value="2" />
     </application>
 </manifest>
-            android:name="flutterEmbedding"
-            android:value="2" />
-    </application>
-</manifest>
