@@ -3,23 +3,31 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // تمام ضروری پرمیشنز
-  await [
-    Permission.location,
-    Permission.microphone,
-    Permission.storage,
-    Permission.camera,
-    Permission.photos, // گیلری کے لیے
-  ].request();
+  // پرمیشنز اور نوٹیفیکیشن کی درخواست
+  await _requestAllPermissions();
   
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: WebViewApp(),
   ));
+}
+
+Future<void> _requestAllPermissions() async {
+  if (Platform.isAndroid) {
+    await Permission.notification.request();
+  }
+  await [
+    Permission.location,
+    Permission.microphone,
+    Permission.storage,
+    Permission.camera,
+    Permission.photos,
+  ].request();
 }
 
 class WebViewApp extends StatefulWidget {
@@ -33,18 +41,6 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
-  Future<void> _openWhatsAppChooser() async {
-    const String url = "https://wa.me/923140143585";
-    final Uri whatsappUri = Uri.parse(url);
-    try {
-      if (await canLaunchUrl(whatsappUri)) {
-        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      debugPrint(e.toString());
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,7 +50,7 @@ class _WebViewAppState extends State<WebViewApp> {
           onWillPop: () async {
             if (isError) {
               setState(() => isError = false);
-              webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
+              _reloadPage();
               return false;
             }
             if (webViewController != null && await webViewController!.canGoBack()) {
@@ -73,85 +69,82 @@ class _WebViewAppState extends State<WebViewApp> {
                 ),
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
-                  geolocationEnabled: true,
                   domStorageEnabled: true,
-                  databaseEnabled: true,
-                  allowFileAccessFromFileURLs: true,
-                  allowUniversalAccessFromFileURLs: true,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                  useOnDownloadStart: true, // ڈاؤن لوڈ لسنر کو آن رکھا گیا ہے
-                  mediaPlaybackRequiresUserGesture: false,
+                  useOnDownloadStart: true,
+                  transparentBackground: true, // بیک گراؤنڈ شفاف تاکہ ایرر پیج نظر نہ آئے
                 ),
                 onWebViewCreated: (c) => webViewController = c,
                 
-                onPermissionRequest: (controller, request) async {
-                  return PermissionResponse(
-                    resources: request.resources,
-                    action: PermissionResponseAction.GRANT,
-                  );
-                },
-
-                // ڈاؤن لوڈنگ ہینڈلر (Native Android code کو کال کرے گا)
-                onDownloadStartRequest: (controller, downloadRequest) async {
-                  // ہم یہاں launchUrl استعمال نہیں کریں گے تاکہ براؤزر نہ کھلے
-                  // بلکہ ہم Native Android (MainActivity) کو ہینڈل کرنے دیں گے
-                  debugPrint("Download started for: ${downloadRequest.url}");
-                },
-
                 onLoadStart: (c, u) {
-                  if (u.toString() != "about:blank") {
-                    setState(() { isLoading = true; isError = false; });
-                  }
+                  setState(() {
+                    isLoading = true;
+                    isError = false; 
+                  });
                 },
+                
                 onLoadStop: (c, u) => setState(() { isLoading = false; }),
+
+                // یہ حصہ اصل جادو ہے: جو ڈیفالٹ ایرر پیج کو چھپائے گا
                 onReceivedError: (c, r, e) {
-                  c.stopLoading();
-                  setState(() { isError = true; isLoading = false; });
+                  // ویب ویو کو خالی کر دو تاکہ ڈومین نظر نہ آئے
+                  c.loadData(data: "<html><body style='background-color: white;'></body></html>");
+                  setState(() {
+                    isError = true;
+                    isLoading = false;
+                  });
+                },
+
+                // اگر سرور سے کوئی ایرر کوڈ (404 یا 500) آئے تب بھی یہی کریں
+                onReceivedHttpError: (c, r, r2) {
+                  c.loadData(data: "<html><body style='background-color: white;'></body></html>");
+                  setState(() {
+                    isError = true;
+                    isLoading = false;
+                  });
                 },
               ),
               
-              if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
+              // لوڈنگ انڈیکیٹر
+              if (isLoading && !isError) 
+                const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
 
+              // آپ کی ڈیزائن کردہ سیکیور ایرر اسکرین
               if (isError)
                 Container(
                   color: const Color(0xFFF1F4F8),
                   width: double.infinity,
+                  height: double.infinity,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("LOADING ERROR", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
+                      const Text("سسٹم ایرر", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
                       const SizedBox(height: 50),
                       
-                      // آپ کی اپ لوڈ کردہ امیج یہاں شو ہوگی
+                      // امیج شو کرنے کا درست طریقہ
                       Image.asset(
-                        'support.png', 
-                        width: 120, 
-                        height: 120,
-                        errorBuilder: (context, error, stackTrace) {
-                          // اگر امیج نہ ملے تو یہ آئیکن دکھائے گا
-                          return const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey);
-                        },
+                        'support.png',
+                        width: 150,
+                        height: 150,
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.support_agent, size: 120, color: Colors.blueGrey),
                       ),
-
+                      
                       const SizedBox(height: 30),
-                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                      const Text("رابطہ برائے مدد", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey, fontFamily: 'serif')),
                       const SizedBox(height: 20),
-                      InkWell(
-                        onTap: _openWhatsAppChooser,
+                      
+                      GestureDetector(
+                        onTap: () => launchUrl(Uri.parse("https://wa.me/923140143585")),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
-                          child: const Text("00923140143585", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+                          child: const Text("WhatsApp Help", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
                         ),
                       ),
                       const SizedBox(height: 60),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
-                        onPressed: () {
-                          setState(() => isError = false);
-                          webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
-                        },
-                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
+                        onPressed: _reloadPage,
+                        child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white, fontSize: 16)),
                       ),
                     ],
                   ),
@@ -161,5 +154,13 @@ class _WebViewAppState extends State<WebViewApp> {
         ),
       ),
     );
+  }
+
+  void _reloadPage() {
+    setState(() {
+      isError = false;
+      isLoading = true;
+    });
+    webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
   }
 }
