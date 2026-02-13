@@ -7,12 +7,13 @@ import 'package:url_launcher/url_launcher.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ایپ شروع ہوتے ہی تمام ضروری پرمیشنز مانگنا
+  // تمام ضروری پرمیشنز
   await [
     Permission.location,
     Permission.microphone,
     Permission.storage,
     Permission.camera,
+    Permission.photos, // گیلری کے لیے
   ].request();
   
   runApp(const MaterialApp(
@@ -36,13 +37,11 @@ class _WebViewAppState extends State<WebViewApp> {
     const String url = "https://wa.me/923140143585";
     final Uri whatsappUri = Uri.parse(url);
     try {
-      final bool launched = await launchUrl(
-        whatsappUri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched) throw 'Could not launch $url';
+      if (await canLaunchUrl(whatsappUri)) {
+        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+      }
     } catch (e) {
-      await launchUrl(whatsappUri, mode: LaunchMode.platformDefault);
+      debugPrint(e.toString());
     }
   }
 
@@ -54,7 +53,8 @@ class _WebViewAppState extends State<WebViewApp> {
         child: WillPopScope(
           onWillPop: () async {
             if (isError) {
-              SystemNavigator.pop();
+              setState(() => isError = false);
+              webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
               return false;
             }
             if (webViewController != null && await webViewController!.canGoBack()) {
@@ -79,12 +79,11 @@ class _WebViewAppState extends State<WebViewApp> {
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                  useOnDownloadStart: true, 
+                  useOnDownloadStart: true, // ڈاؤن لوڈ لسنر کو آن رکھا گیا ہے
                   mediaPlaybackRequiresUserGesture: false,
                 ),
                 onWebViewCreated: (c) => webViewController = c,
                 
-                // مائیکروفون اور کیمرہ کی ویب سائٹ کو اجازت دینے کا درست طریقہ (v6 کے مطابق)
                 onPermissionRequest: (controller, request) async {
                   return PermissionResponse(
                     resources: request.resources,
@@ -92,12 +91,11 @@ class _WebViewAppState extends State<WebViewApp> {
                   );
                 },
 
-                // ڈاؤن لوڈنگ ہینڈلر
+                // ڈاؤن لوڈنگ ہینڈلر (Native Android code کو کال کرے گا)
                 onDownloadStartRequest: (controller, downloadRequest) async {
-                  final url = downloadRequest.url;
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                  }
+                  // ہم یہاں launchUrl استعمال نہیں کریں گے تاکہ براؤزر نہ کھلے
+                  // بلکہ ہم Native Android (MainActivity) کو ہینڈل کرنے دیں گے
+                  debugPrint("Download started for: ${downloadRequest.url}");
                 },
 
                 onLoadStart: (c, u) {
@@ -108,11 +106,7 @@ class _WebViewAppState extends State<WebViewApp> {
                 onLoadStop: (c, u) => setState(() { isLoading = false; }),
                 onReceivedError: (c, r, e) {
                   c.stopLoading();
-                  c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
                   setState(() { isError = true; isLoading = false; });
-                },
-                onGeolocationPermissionsShowPrompt: (c, o) async {
-                  return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
                 },
               ),
               
@@ -122,12 +116,23 @@ class _WebViewAppState extends State<WebViewApp> {
                 Container(
                   color: const Color(0xFFF1F4F8),
                   width: double.infinity,
-                  child: Column( // یہاں ایرر تھا، میں نے درست کر دیا ہے
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text("LOADING ERROR", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
                       const SizedBox(height: 50),
-                      const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey),
+                      
+                      // آپ کی اپ لوڈ کردہ امیج یہاں شو ہوگی
+                      Image.asset(
+                        'support.png', 
+                        width: 120, 
+                        height: 120,
+                        errorBuilder: (context, error, stackTrace) {
+                          // اگر امیج نہ ملے تو یہ آئیکن دکھائے گا
+                          return const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey);
+                        },
+                      ),
+
                       const SizedBox(height: 30),
                       const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                       const SizedBox(height: 20),
