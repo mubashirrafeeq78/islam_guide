@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ایپ شروع ہوتے ہی تمام ضروری پرمیشنز مانگنا
+  // ضروری پرمیشنز مانگنا
   await [
     Permission.location,
     Permission.microphone,
@@ -31,129 +31,101 @@ class _WebViewAppState extends State<WebViewApp> {
   InAppWebViewController? webViewController;
   bool isError = false;
   bool isLoading = true;
+  double progress = 0;
 
-  Future<void> _openWhatsAppChooser() async {
-    const String url = "https://wa.me/923140143585";
-    final Uri whatsappUri = Uri.parse(url);
-    try {
-      final bool launched = await launchUrl(
-        whatsappUri,
-        mode: LaunchMode.externalApplication,
+  // واٹس ایپ یا سپورٹ کے لیے فنکشن
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("لنک کھولنے میں دشواری ہو رہی ہے")),
       );
-      if (!launched) throw 'Could not launch $url';
-    } catch (e) {
-      await launchUrl(whatsappUri, mode: LaunchMode.platformDefault);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
-        child: WillPopScope(
-          onWillPop: () async {
-            if (isError) {
-              SystemNavigator.pop();
-              return false;
-            }
-            if (webViewController != null && await webViewController!.canGoBack()) {
-              webViewController!.goBack();
-              return false;
-            } else {
-              SystemNavigator.pop();
-              return false;
-            }
-          },
-          child: Stack(
-            children: [
-              InAppWebView(
-                initialUrlRequest: URLRequest(
-                  url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
-                ),
-                initialSettings: InAppWebViewSettings(
-                  javaScriptEnabled: true,
-                  geolocationEnabled: true,
-                  domStorageEnabled: true,
-                  databaseEnabled: true,
-                  allowFileAccessFromFileURLs: true,
-                  allowUniversalAccessFromFileURLs: true,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                  useOnDownloadStart: true, 
-                  mediaPlaybackRequiresUserGesture: false,
-                ),
-                onWebViewCreated: (c) => webViewController = c,
-                
-                // مائیکروفون اور کیمرہ کی ویب سائٹ کو اجازت دینے کا درست طریقہ (v6 کے مطابق)
-                onPermissionRequest: (controller, request) async {
-                  return PermissionResponse(
-                    resources: request.resources,
-                    action: PermissionResponseAction.GRANT,
-                  );
-                },
-
-                // ڈاؤن لوڈنگ ہینڈلر
-                onDownloadStartRequest: (controller, downloadRequest) async {
-                  final url = downloadRequest.url;
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                  }
-                },
-
-                onLoadStart: (c, u) {
-                  if (u.toString() != "about:blank") {
-                    setState(() { isLoading = true; isError = false; });
-                  }
-                },
-                onLoadStop: (c, u) => setState(() { isLoading = false; }),
-                onReceivedError: (c, r, e) {
-                  c.stopLoading();
-                  c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
-                  setState(() { isError = true; isLoading = false; });
-                },
-                onGeolocationPermissionsShowPrompt: (c, o) async {
-                  return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
-                },
+        child: Stack(
+          children: [
+            InAppWebView(
+              initialUrlRequest: URLRequest(url: WebUri("https://your-website-url.com")), // یہاں اپنی ویب سائٹ کا لنک لکھیں
+              initialSettings: InAppWebViewSettings(
+                useOnDownloadStart: true,
+                javaScriptEnabled: true,
+                useOnLoadResource: true,
+                allowFileAccessFromFileURLs: true,
+                allowUniversalAccessFromFileURLs: true,
               ),
-              
-              if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
+              onWebViewCreated: (controller) {
+                webViewController = controller;
+              },
+              onLoadStart: (controller, url) {
+                setState(() {
+                  isLoading = true;
+                  isError = false;
+                });
+              },
+              onLoadStop: (controller, url) {
+                setState(() {
+                  isLoading = false;
+                });
+              },
+              onReceivedError: (controller, request, error) {
+                setState(() {
+                  isError = true;
+                  isLoading = false;
+                });
+              },
+              onProgressChanged: (controller, progressValue) {
+                setState(() {
+                  progress = progressValue / 100;
+                });
+              },
+              // ڈاؤن لوڈنگ کا اہم حصہ
+              onDownloadStartRequest: (controller, downloadRequest) async {
+                print("Downloading: ${downloadRequest.url}");
+                // ڈاؤن لوڈ کرنے کے لیے سسٹم براؤزر یا ڈاؤن لوڈر کا استعمال
+                await _launchURL(downloadRequest.url.toString());
+              },
+            ),
+            
+            // لوڈنگ بار
+            if (isLoading)
+              LinearProgressIndicator(value: progress, color: Colors.green),
 
-              if (isError)
-                Container(
-                  color: const Color(0xFFF1F4F8),
-                  width: double.infinity,
-                  child: Column( // یہاں ایرر تھا، میں نے درست کر دیا ہے
+            // کسٹم ایرر اسکرین - آپ کا بتایا ہوا ائیکون یہاں استعمال ہوگا
+            if (isError)
+              Container(
+                color: Colors.white,
+                child: Center(
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("LOADING ERROR", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
-                      const SizedBox(height: 50),
-                      const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey),
-                      const SizedBox(height: 30),
-                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                      Image.asset('support.png', width: 100, height: 100), // آپ کا اپلوڈ کردہ ائیکون
                       const SizedBox(height: 20),
-                      InkWell(
-                        onTap: _openWhatsAppChooser,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
-                          child: const Text("00923140143585", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-                        ),
-                      ),
-                      const SizedBox(height: 60),
+                      const Text("انٹرنیٹ کا مسئلہ ہے یا پیج لوڈ نہیں ہو رہا", 
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
-                        onPressed: () {
-                          setState(() => isError = false);
-                          webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
-                        },
-                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white)),
+                        onPressed: () => webViewController?.reload(),
+                        child: const Text("دوبارہ کوشش کریں"),
                       ),
                     ],
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
+      ),
+      // ہیلپ اسپورٹ بٹن جو آپ نے اسکرین شاٹ میں دکھایا
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _launchURL("https://wa.me/923140143585"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Image.asset('support.png'), // سپورٹ ائیکون
       ),
     );
   }
