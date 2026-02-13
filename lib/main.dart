@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,16 +34,35 @@ class _WebViewAppState extends State<WebViewApp> {
   InAppWebViewController? webViewController;
   bool isError = false;
   bool isLoading = true;
-  double progress = 0;
+  String webUrl = "https://your-website-url.com"; // اپنی ویب سائٹ کا لنک یہاں لکھیں
 
-  // واٹس ایپ یا سپورٹ کے لیے فنکشن
-  Future<void> _launchURL(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
+  // واٹس ایپ کھولنے کا فنکشن
+  Future<void> _openWhatsApp() async {
+    const String url = "https://wa.me/923140143585";
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+  }
+
+  // تصویر ڈاؤن لوڈ کرنے کا فنکشن
+  Future<void> downloadImage(String url) async {
+    try {
+      var status = await Permission.storage.request();
+      if (status.isGranted) {
+        final response = await http.get(Uri.parse(url));
+        final bytes = response.bodyBytes;
+        final directory = await getExternalStorageDirectory();
+        final fileName = url.split('/').last;
+        final file = File('${directory?.path}/$fileName');
+        await file.writeAsBytes(bytes);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("تصویر ڈاؤن لوڈ ہو گئی ہے")),
+        );
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("لنک کھولنے میں دشواری ہو رہی ہے")),
+        const SnackBar(content: Text("ڈاؤن لوڈنگ میں مسئلہ آ رہا ہے")),
       );
     }
   }
@@ -52,13 +74,13 @@ class _WebViewAppState extends State<WebViewApp> {
         child: Stack(
           children: [
             InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri("https://your-website-url.com")), // یہاں اپنی ویب سائٹ کا لنک لکھیں
-              initialSettings: InAppWebViewSettings(
-                useOnDownloadStart: true,
-                javaScriptEnabled: true,
-                useOnLoadResource: true,
-                allowFileAccessFromFileURLs: true,
-                allowUniversalAccessFromFileURLs: true,
+              initialUrlRequest: URLRequest(url: WebUri(webUrl)),
+              initialOptions: InAppWebViewGroupOptions(
+                crossPlatform: InAppWebViewOptions(
+                  useShouldOverrideUrlLoading: true,
+                  useOnDownloadStart: true, // ڈاؤن لوڈنگ فعال کی گئی
+                  javaScriptEnabled: true,
+                ),
               ),
               onWebViewCreated: (controller) {
                 webViewController = controller;
@@ -74,30 +96,34 @@ class _WebViewAppState extends State<WebViewApp> {
                   isLoading = false;
                 });
               },
-              onReceivedError: (controller, request, error) {
+              onLoadError: (controller, url, code, message) {
                 setState(() {
-                  isError = true;
                   isLoading = false;
+                  isError = true;
                 });
               },
-              onProgressChanged: (controller, progressValue) {
-                setState(() {
-                  progress = progressValue / 100;
-                });
-              },
-              // ڈاؤن لوڈنگ کا اہم حصہ
+              // ڈاؤن لوڈنگ ہینڈلر
               onDownloadStartRequest: (controller, downloadRequest) async {
-                print("Downloading: ${downloadRequest.url}");
-                // ڈاؤن لوڈ کرنے کے لیے سسٹم براؤزر یا ڈاؤن لوڈر کا استعمال
-                await _launchURL(downloadRequest.url.toString());
+                await downloadImage(downloadRequest.url.toString());
+              },
+              // شیئرنگ اور دیگر لنکس ہینڈلر
+              shouldOverrideUrlLoading: (controller, navigationAction) async {
+                var uri = navigationAction.request.url!;
+                if (!["http", "https", "file", "chrome", "data", "javascript", "about"].contains(uri.scheme)) {
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    return NavigationActionPolicy.CANCEL;
+                  }
+                }
+                return NavigationActionPolicy.ALLOW;
               },
             ),
             
-            // لوڈنگ بار
+            // لوڈنگ اسکرین
             if (isLoading)
-              LinearProgressIndicator(value: progress, color: Colors.green),
+              const Center(child: CircularProgressIndicator(color: Colors.green)),
 
-            // کسٹم ایرر اسکرین - آپ کا بتایا ہوا ائیکون یہاں استعمال ہوگا
+            // ایرر اسکرین (آپ کے اپلوڈ کردہ ائیکون کے ساتھ)
             if (isError)
               Container(
                 color: Colors.white,
@@ -105,27 +131,24 @@ class _WebViewAppState extends State<WebViewApp> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Image.asset('support.png', width: 100, height: 100), // آپ کا اپلوڈ کردہ ائیکون
+                      Image.asset('support.png', width: 100), // آپ کا آئیکن
                       const SizedBox(height: 20),
-                      const Text("انٹرنیٹ کا مسئلہ ہے یا پیج لوڈ نہیں ہو رہا", 
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text("انٹرنیٹ کا مسئلہ ہے یا پیج لوڈ نہیں ہو رہا", style: TextStyle(fontSize: 16)),
+                      const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: () => webViewController?.reload(),
                         child: const Text("دوبارہ کوشش کریں"),
                       ),
+                      TextButton(
+                        onPressed: _openWhatsApp,
+                        child: const Text("ہیلپ اسپورٹ سے رابطہ کریں"),
+                      )
                     ],
                   ),
                 ),
               ),
           ],
         ),
-      ),
-      // ہیلپ اسپورٹ بٹن جو آپ نے اسکرین شاٹ میں دکھایا
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _launchURL("https://wa.me/923140143585"),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Image.asset('support.png'), // سپورٹ ائیکون
       ),
     );
   }
