@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Environment
 import android.webkit.URLUtil
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.view.ViewGroup
 import android.view.View
 import android.widget.Toast
@@ -15,39 +16,49 @@ class MainActivity: FlutterActivity() {
 
     override fun onPostResume() {
         super.onPostResume()
-        
-        // یہ حصہ ایپ میں ویب ویو کو تلاش کرے گا
         val rootView = window.decorView.rootView as ViewGroup
         val webView = findWebView(rootView)
 
-        // جب ویب سائٹ پر ڈاؤن لوڈ کے بٹن پر کلک ہوگا تو یہ حصہ کام کرے گا
+        // ڈاؤن لوڈ کو ہینڈل کرنا تاکہ براؤزر نہ کھلے
         webView?.setDownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
-            try {
-                val request = DownloadManager.Request(Uri.parse(url))
-                val fileName = URLUtil.guessFileName(url, contentDisposition, mimetype)
+            downloadFile(url, userAgent, contentDisposition, mimetype)
+        }
 
-                request.setMimeType(mimetype)
-                request.addRequestHeader("User-Agent", userAgent)
-                request.setTitle(fileName)
-                request.setDescription("تصویر محفوظ کی جا رہی ہے...")
-                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-
-                val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                dm.enqueue(request)
-
-                Toast.makeText(this, "ڈاؤن لوڈ شروع ہو گیا ہے...", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "ڈاؤن لوڈ میں مسئلہ: ${e.message}", Toast.LENGTH_LONG).show()
+        // اگر لنک تصویر کا ہے تو اسے ایپ کے اندر ہی روک کر ڈاؤن لوڈ کرنا
+        webView?.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                if (url != null && (url.endsWith(".jpg") || url.endsWith(".png") || url.endsWith(".jpeg"))) {
+                    downloadFile(url, "", "", "image/jpeg")
+                    return true // اس کا مطلب ہے براؤزر میں نہیں کھلے گا
+                }
+                return false
             }
         }
     }
 
-    // ویب ویو ڈھونڈنے کا فنکشن
-    private fun findWebView(view: View): WebView? {
-        if (view is WebView) {
-            return view
+    private fun downloadFile(url: String, userAgent: String, contentDisposition: String, mimetype: String) {
+        try {
+            val request = DownloadManager.Request(Uri.parse(url))
+            val fileName = URLUtil.guessFileName(url, contentDisposition, mimetype)
+
+            request.setMimeType(mimetype)
+            request.addRequestHeader("User-Agent", userAgent)
+            request.setTitle(fileName)
+            request.setDescription("تصویر محفوظ کی جا رہی ہے...")
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            dm.enqueue(request)
+
+            Toast.makeText(this, "ڈاؤن لوڈ شروع ہو گیا ہے...", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "ڈاؤن لوڈ میں مسئلہ: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun findWebView(view: View): WebView? {
+        if (view is WebView) return view
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) {
                 val result = findWebView(view.getChildAt(i))
