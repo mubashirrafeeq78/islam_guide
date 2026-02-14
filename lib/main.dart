@@ -1,17 +1,18 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart'; // اس پیکج کو pubspec.yaml میں ڈالیں
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ایپ شروع ہوتے ہی تمام ضروری پرمیشنز مانگنا
   await [
-    Permission.location,
-    Permission.microphone,
     Permission.storage,
+    Permission.photos, // نئے اینڈرائیڈ ورژن کے لیے
     Permission.camera,
   ].request();
   
@@ -36,11 +37,7 @@ class _WebViewAppState extends State<WebViewApp> {
     const String url = "https://wa.me/923140143585";
     final Uri whatsappUri = Uri.parse(url);
     try {
-      final bool launched = await launchUrl(
-        whatsappUri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched) throw 'Could not launch $url';
+      await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
     } catch (e) {
       await launchUrl(whatsappUri, mode: LaunchMode.platformDefault);
     }
@@ -73,46 +70,39 @@ class _WebViewAppState extends State<WebViewApp> {
                 ),
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
-                  geolocationEnabled: true,
                   domStorageEnabled: true,
-                  databaseEnabled: true,
+                  useOnDownloadStart: true, 
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                  useOnDownloadStart: true, 
-                  mediaPlaybackRequiresUserGesture: false,
                 ),
-                onWebViewCreated: (c) => webViewController = c,
-                
-                // مائیکروفون اور کیمرہ کی ویب سائٹ کو اجازت دینے کا درست طریقہ (v6 کے مطابق)
+                onWebViewCreated: (controller) {
+                  webViewController = controller;
+                  
+                  // یہ ہینڈلر ویب سائٹ سے ڈیٹا وصول کرے گا
+                  controller.addJavaScriptHandler(handlerName: 'downloadImageHandler', callback: (args) async {
+                    String base64String = args[0];
+                    String fileName = args[1];
+                    
+                    // Base64 کو بائٹس میں بدلنا
+                    Uint8List bytes = base64Decode(base64String.split(',').last);
+                    
+                    // گیلری میں محفوظ کرنا
+                    final result = await ImageGallerySaver.saveImage(bytes, name: fileName);
+                    
+                    if (result['isSuccess']) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("تصویر گیلری میں محفوظ کر دی گئی ہے")),
+                      );
+                    }
+                  });
+                },
                 onPermissionRequest: (controller, request) async {
-                  return PermissionResponse(
-                    resources: request.resources,
-                    action: PermissionResponseAction.GRANT,
-                  );
+                  return PermissionResponse(resources: request.resources, action: PermissionResponseAction.GRANT);
                 },
-
-                // ڈاؤن لوڈنگ ہینڈلر
-                onDownloadStartRequest: (controller, downloadRequest) async {
-                  final url = downloadRequest.url;
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                  }
-                },
-
-                onLoadStart: (c, u) {
-                  if (u.toString() != "about:blank") {
-                    setState(() { isLoading = true; isError = false; });
-                  }
-                },
+                onLoadStart: (c, u) => setState(() { isLoading = true; isError = false; }),
                 onLoadStop: (c, u) => setState(() { isLoading = false; }),
                 onReceivedError: (c, r, e) {
-                  c.stopLoading();
-                  c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
                   setState(() { isError = true; isLoading = false; });
-                },
-                onGeolocationPermissionsShowPrompt: (c, o) async {
-                  return GeolocationPermissionShowPromptResponse(origin: o, allow: true, retain: true);
                 },
               ),
               
@@ -122,7 +112,7 @@ class _WebViewAppState extends State<WebViewApp> {
                 Container(
                   color: const Color(0xFFF1F4F8),
                   width: double.infinity,
-                  child: Column( // یہاں ایرر تھا، میں نے درست کر دیا ہے
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text("LOADING ERROR", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
@@ -141,12 +131,11 @@ class _WebViewAppState extends State<WebViewApp> {
                       ),
                       const SizedBox(height: 60),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
                         onPressed: () {
                           setState(() => isError = false);
-                          webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
+                          webViewController?.reload();
                         },
-                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white)),
+                        child: const Text("TRY AGAIN"),
                       ),
                     ],
                   ),
