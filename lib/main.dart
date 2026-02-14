@@ -7,10 +7,7 @@ import 'dart:io';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // ایپ کھلتے ہی نوٹیفیکیشن اور دیگر ضروری پرمیشنز مانگنا
   await _askPermissions();
-  
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: WebViewApp(),
@@ -40,8 +37,8 @@ class _WebViewAppState extends State<WebViewApp> {
   InAppWebViewController? webViewController;
   bool isError = false;
   bool isLoading = true;
+  bool isFirstLoadDone = false; // یہ چیک کرے گا کہ کیا ایک بار کامیابی سے لوڈنگ ہو گئی
 
-  // واٹس ایپ پر براہ راست بھیجنے کا فنکشن
   Future<void> _launchWhatsApp() async {
     final Uri whatsappUri = Uri.parse("https://wa.me/923140143585");
     if (await canLaunchUrl(whatsappUri)) {
@@ -70,96 +67,82 @@ class _WebViewAppState extends State<WebViewApp> {
           },
           child: Stack(
             children: [
-              // ویب ویو: اگر ایرر ہو تو اسے مکمل غائب کر دو تاکہ ڈومین نہ دکھے
-              if (!isError)
-                InAppWebView(
-                  initialUrlRequest: URLRequest(
-                    url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
-                  ),
-                  initialSettings: InAppWebViewSettings(
-                    javaScriptEnabled: true,
-                    domStorageEnabled: true,
-                    useOnDownloadStart: true,
-                    disableDefaultErrorPage: true, // اینڈرائیڈ کا اپنا ایرر پیج بلاک کریں
-                  ),
-                  onWebViewCreated: (c) => webViewController = c,
-                  onLoadStart: (c, u) => setState(() { isLoading = true; isError = false; }),
-                  onLoadStop: (c, u) => setState(() { isLoading = false; }),
-                  
-                  // کسی بھی قسم کے ایرر پر کسٹم اسکرین ٹرگر کریں
-                  onReceivedError: (c, r, e) {
-                    setState(() {
-                      isError = true;
-                      isLoading = false;
-                    });
-                  },
-                  onReceivedHttpError: (c, r, res) {
-                    setState(() {
-                      isError = true;
-                      isLoading = false;
-                    });
-                  },
+              // ویب ویو صرف تب غائب ہوگا جب پہلی بار لوڈنگ میں مسئلہ ہو
+              InAppWebView(
+                initialUrlRequest: URLRequest(
+                  url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
                 ),
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  domStorageEnabled: true,
+                  useOnDownloadStart: true,
+                  disableDefaultErrorPage: true, // سسٹم کا ایرر پیج بلاک
+                  cacheMode: CacheMode.LOAD_DEFAULT, // کیشے کا استعمال تاکہ سلو نیٹ پر مسئلہ نہ ہو
+                ),
+                onWebViewCreated: (c) => webViewController = c,
+                onLoadStart: (c, u) {
+                  if (!isFirstLoadDone) setState(() => isLoading = true);
+                },
+                onLoadStop: (c, u) {
+                  setState(() {
+                    isLoading = false;
+                    isError = false;
+                    isFirstLoadDone = true; // پہلی بار لوڈنگ مکمل ہو گئی
+                  });
+                },
+                
+                onReceivedError: (c, r, e) {
+                  // اگر پہلی بار لوڈنگ نہیں ہوئی صرف تب ایرر اسکرین دکھائیں
+                  if (!isFirstLoadDone) {
+                    setState(() {
+                      isError = true;
+                      isLoading = false;
+                    });
+                  }
+                },
+                
+                onReceivedHttpError: (c, r, res) {
+                  if (!isFirstLoadDone) {
+                    setState(() {
+                      isError = true;
+                      isLoading = false;
+                    });
+                  }
+                },
+              ),
               
-              // لوڈنگ پروگریس
               if (isLoading && !isError) 
                 const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
 
-              // آپ کی کسٹم ایرر اسکرین (تصویر کے عین مطابق)
-              if (isError)
+              // سیکیور ایرر اسکرین صرف پہلی بار فیل ہونے پر نظر آئے گی
+              if (isError && !isFirstLoadDone)
                 Container(
                   color: const Color(0xFFF1F4F8),
                   width: double.infinity,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        "LOADING ERROR", 
-                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.redAccent, letterSpacing: 1.2)
-                      ),
+                      const Text("LOADING ERROR", style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.redAccent)),
                       const SizedBox(height: 40),
-                      
-                      // سپورٹ امیج (جو آپ نے اپ لوڈ کی ہے)
                       Image.asset(
                         'support.png',
-                        width: 140,
-                        height: 140,
+                        width: 140, height: 140,
                         errorBuilder: (context, error, stackTrace) => const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey),
                       ),
-                      
                       const SizedBox(height: 30),
-                      const Text(
-                        "HELP SUPPORT", 
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blueGrey)
-                      ),
+                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                       const SizedBox(height: 15),
-                      
-                      // واٹس ایپ بٹن ڈیزائن
                       InkWell(
                         onTap: _launchWhatsApp,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                          decoration: BoxDecoration(
-                            color: Colors.white, 
-                            borderRadius: BorderRadius.circular(50),
-                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 15, offset: Offset(0, 5))]
-                          ),
-                          child: const Text(
-                            "00923140143585", 
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)
-                          ),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(50), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 15)]),
+                          child: const Text("00923140143585", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
                         ),
                       ),
-                      
                       const SizedBox(height: 50),
-                      
-                      // دوبارہ کوشش کا بٹن
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF607D8B),
-                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))
-                        ),
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF607D8B), padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12)),
                         onPressed: _retry,
                         child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
