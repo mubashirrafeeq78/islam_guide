@@ -9,9 +9,10 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_inappwebview: ^6.0.0
-  permission_handler: ^11.0.0
+  permission_handler: ^11.3.1
   location: ^5.0.3
-  url_launcher: ^6.2.0 # واٹس ایپ اور لنکس کھولنے کے لیے لازمی ہے
+  url_launcher: ^6.2.5 # واٹس ایپ اور لنکس کھولنے کے لیے لازمی ہے
+  image_gallery_saver: ^5.0.2 # تصویر محفوظ کرنے کے لیے یہ یہاں لازمی ہے
   cupertino_icons: ^1.0.2
 
 dev_dependencies:
@@ -23,6 +24,7 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "icon.png"
+  min_sdk_android: 21 # اینڈرائیڈ کے لیے کم سے کم ورژن
   adaptive_icon_background: "#ffffff"
 
 flutter:
