@@ -7,14 +7,17 @@ import 'dart:io';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _requestAllPermissions();
+  
+  // ایپ کھلتے ہی نوٹیفیکیشن اور دیگر ضروری پرمیشنز مانگنا
+  await _askPermissions();
+  
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: WebViewApp(),
   ));
 }
 
-Future<void> _requestAllPermissions() async {
+Future<void> _askPermissions() async {
   if (Platform.isAndroid) {
     await Permission.notification.request();
   }
@@ -38,6 +41,14 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
+  // واٹس ایپ پر براہ راست بھیجنے کا فنکشن
+  Future<void> _launchWhatsApp() async {
+    final Uri whatsappUri = Uri.parse("https://wa.me/923140143585");
+    if (await canLaunchUrl(whatsappUri)) {
+      await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,7 +57,7 @@ class _WebViewAppState extends State<WebViewApp> {
         child: WillPopScope(
           onWillPop: () async {
             if (isError) {
-              _reloadPage();
+              _retry();
               return false;
             }
             if (webViewController != null && await webViewController!.canGoBack()) {
@@ -59,10 +70,9 @@ class _WebViewAppState extends State<WebViewApp> {
           },
           child: Stack(
             children: [
-              // ویب ویو کو صرف تب دکھائیں جب ایرر نہ ہو
-              Opacity(
-                opacity: isError ? 0.0 : 1.0, 
-                child: InAppWebView(
+              // ویب ویو: اگر ایرر ہو تو اسے مکمل غائب کر دو تاکہ ڈومین نہ دکھے
+              if (!isError)
+                InAppWebView(
                   initialUrlRequest: URLRequest(
                     url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
                   ),
@@ -70,72 +80,90 @@ class _WebViewAppState extends State<WebViewApp> {
                     javaScriptEnabled: true,
                     domStorageEnabled: true,
                     useOnDownloadStart: true,
-                    // اینڈرائیڈ کا اپنا ایرر پیج روکنے کے لیے
-                    disableDefaultErrorPage: true, 
+                    disableDefaultErrorPage: true, // اینڈرائیڈ کا اپنا ایرر پیج بلاک کریں
                   ),
                   onWebViewCreated: (c) => webViewController = c,
                   onLoadStart: (c, u) => setState(() { isLoading = true; isError = false; }),
                   onLoadStop: (c, u) => setState(() { isLoading = false; }),
                   
-                  // ایرر آنے پر ڈومین چھپانا اور ایرر اسکرین دکھانا
+                  // کسی بھی قسم کے ایرر پر کسٹم اسکرین ٹرگر کریں
                   onReceivedError: (c, r, e) {
                     setState(() {
                       isError = true;
                       isLoading = false;
                     });
                   },
-                  onReceivedHttpError: (c, r, r2) {
+                  onReceivedHttpError: (c, r, res) {
                     setState(() {
                       isError = true;
                       isLoading = false;
                     });
                   },
                 ),
-              ),
               
-              // لوڈنگ انڈیکیٹر
+              // لوڈنگ پروگریس
               if (isLoading && !isError) 
                 const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
 
-              // آپ کی سیکیور ایرر اسکرین
+              // آپ کی کسٹم ایرر اسکرین (تصویر کے عین مطابق)
               if (isError)
-                Positioned.fill(
-                  child: Container(
-                    color: const Color(0xFFF1F4F8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text("سسٹم ایرر", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
-                        const SizedBox(height: 50),
-                        
-                        // امیج شو کرنے کا درست طریقہ
-                        Image.asset(
-                          'support.png',
-                          width: 150,
-                          height: 150,
-                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.support_agent, size: 120, color: Colors.blueGrey),
-                        ),
-                        
-                        const SizedBox(height: 30),
-                        const Text("رابطہ برائے مدد", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                        const SizedBox(height: 20),
-                        
-                        GestureDetector(
-                          onTap: () => launchUrl(Uri.parse("https://wa.me/923140143585")),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
-                            child: const Text("WhatsApp Help", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+                Container(
+                  color: const Color(0xFFF1F4F8),
+                  width: double.infinity,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "LOADING ERROR", 
+                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.redAccent, letterSpacing: 1.2)
+                      ),
+                      const SizedBox(height: 40),
+                      
+                      // سپورٹ امیج (جو آپ نے اپ لوڈ کی ہے)
+                      Image.asset(
+                        'support.png',
+                        width: 140,
+                        height: 140,
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey),
+                      ),
+                      
+                      const SizedBox(height: 30),
+                      const Text(
+                        "HELP SUPPORT", 
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.blueGrey)
+                      ),
+                      const SizedBox(height: 15),
+                      
+                      // واٹس ایپ بٹن ڈیزائن
+                      InkWell(
+                        onTap: _launchWhatsApp,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                          decoration: BoxDecoration(
+                            color: Colors.white, 
+                            borderRadius: BorderRadius.circular(50),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 15, offset: Offset(0, 5))]
+                          ),
+                          child: const Text(
+                            "00923140143585", 
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)
                           ),
                         ),
-                        const SizedBox(height: 60),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
-                          onPressed: _reloadPage,
-                          child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white, fontSize: 16)),
+                      ),
+                      
+                      const SizedBox(height: 50),
+                      
+                      // دوبارہ کوشش کا بٹن
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF607D8B),
+                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))
                         ),
-                      ],
-                    ),
+                        onPressed: _retry,
+                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -145,7 +173,7 @@ class _WebViewAppState extends State<WebViewApp> {
     );
   }
 
-  void _reloadPage() {
+  void _retry() {
     setState(() {
       isError = false;
       isLoading = true;
