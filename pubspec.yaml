@@ -9,11 +9,12 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_inappwebview: ^6.0.0
-  permission_handler: ^11.3.1
+  permission_handler: ^11.0.0
   location: ^5.0.3
-  url_launcher: ^6.2.5 # واٹس ایپ اور لنکس کھولنے کے لیے لازمی ہے
-  image_gallery_saver: ^5.0.2 # تصویر محفوظ کرنے کے لیے یہ یہاں لازمی ہے
+  url_launcher: ^6.2.0
   cupertino_icons: ^1.0.2
+  # یہ لائن شامل کریں تاکہ تصویر والا ایرر ختم ہو جائے
+  image_gallery_saver: ^2.0.3 
 
 dev_dependencies:
   flutter_test:
@@ -24,13 +25,10 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "icon.png"
-  min_sdk_android: 21 # اینڈرائیڈ کے لیے کم سے کم ورژن
   adaptive_icon_background: "#ffffff"
 
 flutter:
   uses-material-design: true
-
-  # یہاں ہم نے آپ کے آئیکونز کو رجسٹر کیا ہے
   assets:
     - support.png
     - whatsapp.png
