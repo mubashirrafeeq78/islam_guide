@@ -1,4 +1,4 @@
-name: masail_ka_hal
+name: noorapp
 description: Professional WebView App
 version: 1.0.0+1
 
@@ -8,9 +8,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # ویب ویو اور میڈیا ہینڈلنگ کے لیے
   flutter_inappwebview: ^6.0.0
+  # کیمرہ اور گیلری پرمیشنز کے لیے
   permission_handler: ^11.0.0
-  location: ^5.0.3
+  # واٹس ایپ یا بیرونی لنکس کھولنے کے لیے
   url_launcher: ^6.2.0
   cupertino_icons: ^1.0.2
 
