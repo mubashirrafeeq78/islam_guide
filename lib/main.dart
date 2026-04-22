@@ -1,109 +1,78 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // صرف ضروری پرمیشنز (ریکارڈنگ اور میڈیا)
-  await [
-    Permission.microphone,
-    Permission.camera,
-    Permission.photos,
-  ].request();
-  
+  // ایپ شروع ہونے سے پہلے ضروری پرمیشنز چیک کرنا
+  await _requestInitialPermissions();
+
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: WebViewApp(),
+    home: NoorAppWebView(),
   ));
 }
 
-class WebViewApp extends StatefulWidget {
-  const WebViewApp({super.key});
-  @override
-  State<WebViewApp> createState() => _WebViewAppState();
+// کیمرہ اور میڈیا پرمیشنز مانگنے کا فنکشن
+Future<void> _requestInitialPermissions() async {
+  await [
+    Permission.camera,
+    Permission.photos,
+    Permission.microphone,
+  ].request();
 }
 
-class _WebViewAppState extends State<WebViewApp> {
+class NoorAppWebView extends StatefulWidget {
+  const NoorAppWebView({super.key});
+
+  @override
+  State<NoorAppWebView> createState() => _NoorAppWebViewState();
+}
+
+class _NoorAppWebViewState extends State<NoorAppWebView> {
   InAppWebViewController? webViewController;
-  bool isLoading = true; // صرف پہلی لوڈنگ کے لیے
-  bool hasLoadedOnce = false; // ٹریک کرنے کے لیے کہ کیا ایک بار لوڈ ہو چکا ہے
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      // اوپر سے اسٹیٹس بار کو صاف رکھنے کے لیے SafeArea
       body: SafeArea(
-        child: PopScope(
-          canPop: false,
-          onPopInvoked: (didPop) async {
-            if (didPop) return;
-            if (webViewController != null && await webViewController!.canGoBack()) {
-              webViewController!.goBack();
-            } else {
-              SystemNavigator.pop();
-            }
-          },
-          child: Stack(
-            children: [
-              InAppWebView(
-                initialUrlRequest: URLRequest(
-                  url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"),
-                ),
-                initialSettings: InAppWebViewSettings(
-                  javaScriptEnabled: true,
-                  geolocationEnabled: false, // لوکیشن بند کر دی گئی ہے
-                  domStorageEnabled: true,
-                  databaseEnabled: true,
-                  allowFileAccessFromFileURLs: true,
-                  allowUniversalAccessFromFileURLs: true,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                  useOnDownloadStart: false, // ڈاؤن لوڈنگ مکمل بند
-                  mediaPlaybackRequiresUserGesture: false,
-                ),
-                onWebViewCreated: (c) => webViewController = c,
-                
-                onPermissionRequest: (controller, request) async {
-                  return PermissionResponse(
-                    resources: request.resources,
-                    action: PermissionResponseAction.GRANT,
-                  );
-                },
-
-                onLoadStart: (c, u) {
-                  // اگر ابھی تک ایک بار بھی لوڈ نہیں ہوا، تو لوڈنگ دکھائیں
-                  if (!hasLoadedOnce) {
-                    setState(() {
-                      isLoading = true;
-                    });
-                  }
-                },
-                
-                onLoadStop: (c, u) {
-                  setState(() {
-                    isLoading = false;
-                    hasLoadedOnce = true; // اب یہ دوبارہ ٹرو نہیں ہوگا
-                  });
-                },
-                
-                onReceivedError: (c, r, e) {
-                  // ایرر آنے پر کچھ نہیں کرنا، بس لوڈنگ روک دینی ہے اگر وہ پہلی بار تھی
-                  if (!hasLoadedOnce) {
-                    // یہاں ہم کچھ نہیں کریں گے تاکہ سرکل گھومتا رہے یا پچھلا ڈیٹا رہے
-                  }
-                },
-              ),
-              
-              // لوڈنگ سرکل صرف تب دکھے گا جب ایپ پہلی بار لوڈ ہو رہی ہو
-              if (isLoading && !hasLoadedOnce) 
-                const Center(
-                  child: CircularProgressIndicator(
-                    color: Colors.blueGrey,
-                  ),
-                ),
-            ],
+        child: InAppWebView(
+          initialUrlRequest: URLRequest(
+            url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"),
           ),
+          initialSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            useOnDownloadStart: false, // ڈاؤن لوڈنگ سختی سے بند ہے
+            allowsInlineMediaPlayback: true,
+            safeBrowsingEnabled: true,
+            // میڈیا اپ لوڈنگ اور کیمرہ کے لیے ضروری سیٹنگ
+            allowFileAccessFromFileURLs: true,
+            allowUniversalAccessFromFileURLs: true,
+          ),
+          onWebViewCreated: (controller) {
+            webViewController = controller;
+          },
+          // ویب سائٹ کے اندر پرمیشن کی درخواستوں کو ہینڈل کرنا (کیمرہ/مائیک)
+          onPermissionRequest: (controller, request) async {
+            return PermissionResponse(
+              resources: request.resources,
+              action: PermissionResponseAction.GRANT,
+            );
+          },
+          // واٹس ایپ اور بیرونی لنکس کو ہینڈل کرنا
+          shouldOverrideUrlLoading: (controller, navigationAction) async {
+            var uri = navigationAction.request.url!;
+            if (!["http", "https", "file", "chrome", "data", "javascript"].contains(uri.scheme)) {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                return NavigationActionPolicy.CANCEL;
+              }
+            }
+            return NavigationActionPolicy.ALLOW;
+          },
         ),
       ),
     );
