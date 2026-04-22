@@ -6,7 +6,8 @@ plugins {
 }
 
 android {
-    namespace = "com.noor.app.noor_app"
+    // یہاں ہم نے واپس پرانا پیکیج نیم کر دیا ہے تاکہ کریش نہ ہو
+    namespace = "com.masail.hal.islam_guide"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,8 +21,8 @@ android {
     }
 
     defaultConfig {
-        // Updated unique Application ID for NoorApp
-        applicationId = "com.noor.app.noor_app"
+        // یہ آئی ڈی آپ کی MainActivity کے پیکیج سے میچ ہونا ضروری ہے
+        applicationId = "com.masail.hal.islam_guide"
         
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
