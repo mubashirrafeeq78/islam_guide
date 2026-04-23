@@ -8,11 +8,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # ویب ویو اور میڈیا ہینڈلنگ کے لیے
+  # اسکرین ریفریش اور ویب ویو کے لیے یہ لازمی ہے
+  webview_flutter: ^4.10.0
+  # آپ کی موجودہ لائبریریز
   flutter_inappwebview: ^6.0.0
-  # کیمرہ اور گیلری پرمیشنز کے لیے
   permission_handler: ^11.0.0
-  # واٹس ایپ یا بیرونی لنکس کھولنے کے لیے
   url_launcher: ^6.2.0
   cupertino_icons: ^1.0.2
 
