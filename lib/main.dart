@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // کیمرہ، مائیکروفون اور اسٹوریج کی پرمیشنز شروع میں ہی مانگنا
+  await [
+    Permission.camera,
+    Permission.microphone,
+    Permission.storage,
+  ].request();
+
   runApp(const MaterialApp(
     home: NoorAppHome(),
     debugShowCheckedModeBanner: false,
@@ -23,7 +32,6 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    // ایپ کی حالت (Background/Foreground) پر نظر رکھنے کے لیے
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -33,11 +41,11 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // جب بھی ایپ دوبارہ سامنے آئے گی، یہ فنکشن چلے گا
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // صرف تب ری لوڈ کریں جب ایپ مکمل طور پر دوبارہ سامنے آئے (Resumed)
+    // اور میڈیا پکنگ کے دوران ہونے والے پوز (Inactive) کو نظر انداز کرے
     if (state == AppLifecycleState.resumed) {
-      // ویب سائٹ کو فوری ری لوڈ کریں تاکہ پن (PIN) دوبارہ مانگا جائے
       webViewController?.reload();
     }
   }
@@ -50,18 +58,21 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
           initialUrlRequest: URLRequest(url: WebUri(_appUrl)),
           initialSettings: InAppWebViewSettings(
             javaScriptEnabled: true,
-            // سیکیورٹی کے لیے کیشے کو کنٹرول کرنا
-            cacheEnabled: false, 
+            cacheEnabled: false,
             clearCache: true,
-            // فائل ڈاؤن لوڈنگ کو روکنے کے لیے (اگر ضرورت ہو)
-            useOnDownloadStart: true,
-            allowsBackForwardNavigationGestures: false,
+            // میڈیا اور کیمرہ پرمیشنز کو ویب ویو کے اندر الاؤ کرنا
+            mediaPlaybackRequiresUserGesture: false,
+            allowsInlineMediaPlayback: true,
           ),
           onWebViewCreated: (controller) {
             webViewController = controller;
           },
-          onLoadStop: (controller, url) async {
-            // صفحہ لوڈ ہونے کے بعد اگر آپ کچھ اضافی سیکیورٹی لگانا چاہیں
+          // یہ حصہ ویب سائٹ کے اندر پرمیشنز (کیمرہ وغیرہ) کو ہینڈل کرے گا
+          androidOnPermissionRequest: (controller, origin, resources) async {
+            return PermissionRequestResponse(
+              resources: resources,
+              action: PermissionRequestResponseAction.GRANT,
+            );
           },
         ),
       ),
