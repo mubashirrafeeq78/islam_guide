@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MaterialApp(
     home: NoorAppHome(),
     debugShowCheckedModeBanner: false,
@@ -16,51 +17,53 @@ class NoorAppHome extends StatefulWidget {
 }
 
 class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
-  late final WebViewController _controller;
+  InAppWebViewController? webViewController;
   final String _appUrl = "https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php";
 
   @override
   void initState() {
     super.initState();
-    // ایپ کی لائف سائیکل پر نظر رکھنے کے لیے آبزرور کا آغاز
+    // ایپ کی حالت (Background/Foreground) پر نظر رکھنے کے لیے
     WidgetsBinding.instance.addObserver(this);
-
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {},
-          onPageFinished: (String url) {},
-          onWebResourceError: (WebResourceError error) {},
-        ),
-      )
-      ..loadRequest(Uri.parse(_appUrl));
   }
 
   @override
   void dispose() {
-    // آبزرور کو ختم کرنا
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  // یہ فنکشن چیک کرتا ہے کہ ایپ کی حالت کب بدلی
+  // جب بھی ایپ دوبارہ سامنے آئے گی، یہ فنکشن چلے گا
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // جیسے ہی ایپ دوبارہ اوپن ہوگی، ڈومین خود بخود ری لوڈ ہو جائے گا
-      // اس سے ویب سائٹ دوبارہ سیکیورٹی پن مانگے گی
-      _controller.reload();
+      // ویب سائٹ کو فوری ری لوڈ کریں تاکہ پن (PIN) دوبارہ مانگا جائے
+      webViewController?.reload();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // اوپر کا حصہ (Status Bar) کو محفوظ رکھنے کے لیے SafeArea
       body: SafeArea(
-        child: WebViewWidget(controller: _controller),
+        child: InAppWebView(
+          initialUrlRequest: URLRequest(url: WebUri(_appUrl)),
+          initialSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            // سیکیورٹی کے لیے کیشے کو کنٹرول کرنا
+            cacheEnabled: false, 
+            clearCache: true,
+            // فائل ڈاؤن لوڈنگ کو روکنے کے لیے (اگر ضرورت ہو)
+            useOnDownloadStart: true,
+            allowsBackForwardNavigationGestures: false,
+          ),
+          onWebViewCreated: (controller) {
+            webViewController = controller;
+          },
+          onLoadStop: (controller, url) async {
+            // صفحہ لوڈ ہونے کے بعد اگر آپ کچھ اضافی سیکیورٹی لگانا چاہیں
+          },
+        ),
       ),
     );
   }
