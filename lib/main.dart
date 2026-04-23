@@ -21,7 +21,7 @@ class NoorAppHome extends StatefulWidget {
 class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
   InAppWebViewController? webViewController;
   bool isInitialLoading = true;
-  bool showNoInternetScreen = false; // کسٹم ایرر اسکرین کے لیے
+  bool showNoInternetScreen = false;
   final String _appUrl = "https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php";
 
   @override
@@ -50,44 +50,38 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
       body: SafeArea(
         child: Stack(
           children: [
-            // اصل ویب ویو
             InAppWebView(
               initialUrlRequest: URLRequest(url: WebUri(_appUrl)),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 cacheEnabled: true,
                 domStorageEnabled: true,
-                // یہ سیٹنگ سسٹم کے ایرر پیج کو مکمل بلاک کر دیتی ہے
                 useOnRenderProcessGone: true,
-                disableDefaultErrorPage: true, 
+                disableDefaultErrorPage: true, // سسٹم کا ایرر پیج بلاک
               ),
               onWebViewCreated: (controller) => webViewController = controller,
-              
               onLoadStart: (controller, url) {
                 setState(() {
-                  showNoInternetScreen = false; // لوڈنگ شروع ہوتے ہی ایرر ہٹائیں
+                  showNoInternetScreen = false;
                 });
               },
-              
               onLoadStop: (controller, url) {
                 setState(() {
                   isInitialLoading = false;
                   showNoInternetScreen = false;
                 });
               },
-
               onReceivedError: (controller, request, error) {
-                // اگر پیج لوڈ ہوتے وقت انٹرنیٹ نہ ہو
+                // صرف مین پیج کے ایرر پر کسٹم اسکرین دکھائیں
                 if (request.isForMainFrame ?? false) {
                   setState(() {
                     isInitialLoading = false;
-                    showNoInternetScreen = true; // کسٹم ایرر اسکرین دکھائیں
+                    showNoInternetScreen = true; 
                   });
                 }
               },
             ),
             
-            // 1. پہلی بار اوپننگ لوڈنگ
             if (isInitialLoading)
               Container(
                 color: Colors.white,
@@ -96,14 +90,13 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
                 ),
               ),
 
-            // 2. کسٹم "No Internet" اسکرین (ڈومین چھپانے کے لیے)
             if (showNoInternetScreen)
               Container(
                 color: Colors.white,
                 width: double.infinity,
                 height: double.infinity,
                 child: Column(
-                  mainAxisAlignment: MainCenter,
+                  mainAxisAlignment: MainAxisAlignment.center, // یہاں درستگی کر دی گئی ہے
                   children: [
                     const Icon(Icons.wifi_off, size: 80, color: Colors.grey),
                     const SizedBox(height: 20),
