@@ -7,10 +7,12 @@ import 'package:url_launcher/url_launcher.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ایپ لوڈ ہونے سے پہلے مکمل ڈیٹا اور کوکیز کی صفائی
+  // ایپ لوڈ ہونے سے پہلے ہر قسم کا ڈیٹا، کیشے اور کوکیز صاف کرنا
   try {
+    // یہ سب سے طاقتور کمانڈ ہے جو تمام ڈیٹا صاف کرتی ہے
+    await InAppWebViewController.clearAllCache(); 
+    
     await CookieManager.instance().deleteAllCookies();
-    // v6 میں اینڈرائیڈ کے لیے تمام ڈیٹا صاف کرنے کا طریقہ
     final webStorageManager = WebStorageManager.instance();
     await webStorageManager.android.deleteAllData(); 
   } catch (e) {
@@ -62,19 +64,13 @@ class _WebViewAppState extends State<WebViewApp> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: WillPopScope(
-          onWillPop: () async {
-            if (isError) {
-              SystemNavigator.pop();
-              return false;
-            }
-            if (webViewController != null && await webViewController!.canGoBack()) {
-              webViewController!.goBack();
-              return false;
-            } else {
-              SystemNavigator.pop();
-              return false;
-            }
+        // یہاں ہم نے سنگل کلک ایگزٹ کے لیے لاجک تبدیل کر دیا ہے
+        child: PopScope(
+          canPop: false, 
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            // سنگل کلک پر ایپ بند کرنے کے لیے
+            SystemNavigator.pop();
           },
           child: Stack(
             children: [
@@ -87,8 +83,8 @@ class _WebViewAppState extends State<WebViewApp> {
                   geolocationEnabled: false,
                   domStorageEnabled: true,
                   databaseEnabled: true,
-                  clearCache: true, // اوپن ہوتے ہی کیشے صاف کرنے کا حکم
-                  cacheEnabled: false, // سیکیورٹی کے لیے کیشے کو ڈس ایبل رکھا گیا ہے
+                  clearCache: true, // ہر بار اوپننگ پر کیشے صاف
+                  cacheEnabled: false, // سیکیورٹی کے لیے کیشے آف
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
