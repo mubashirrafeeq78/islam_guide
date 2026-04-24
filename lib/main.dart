@@ -21,7 +21,7 @@ class NoorAppHome extends StatefulWidget {
 class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
   InAppWebViewController? webViewController;
   bool isInitialLoading = true;
-  bool showNoInternetScreen = false;
+  bool showNoInternetScreen = false; 
   final String _appUrl = "https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php";
 
   @override
@@ -60,19 +60,23 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
                 disableDefaultErrorPage: true, // سسٹم کا ایرر پیج بلاک
               ),
               onWebViewCreated: (controller) => webViewController = controller,
+              
               onLoadStart: (controller, url) {
-                setState(() {
-                  showNoInternetScreen = false;
-                });
+                // لوڈنگ شروع ہوتے ہی ایرر اسکرین ہٹا دیں
+                if (showNoInternetScreen) {
+                  setState(() => showNoInternetScreen = false);
+                }
               },
+              
               onLoadStop: (controller, url) {
                 setState(() {
                   isInitialLoading = false;
                   showNoInternetScreen = false;
                 });
               },
+
               onReceivedError: (controller, request, error) {
-                // صرف مین پیج کے ایرر پر کسٹم اسکرین دکھائیں
+                // اگر مین پیج لوڈ نہ ہو سکے تو کسٹم اسکرین دکھائیں
                 if (request.isForMainFrame ?? false) {
                   setState(() {
                     isInitialLoading = false;
@@ -82,6 +86,7 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
               },
             ),
             
+            // 1. پہلی بار اوپننگ لوڈنگ (صرف اسٹارٹ میں)
             if (isInitialLoading)
               Container(
                 color: Colors.white,
@@ -90,13 +95,14 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
                 ),
               ),
 
+            // 2. کسٹم "No Internet" اسکرین (ڈومین کو چھپانے کے لیے)
             if (showNoInternetScreen)
               Container(
                 color: Colors.white,
                 width: double.infinity,
                 height: double.infinity,
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center, // یہاں درستگی کر دی گئی ہے
+                  mainAxisAlignment: MainAxisAlignment.center, // یہاں غلطی ٹھیک کر دی گئی ہے
                   children: [
                     const Icon(Icons.wifi_off, size: 80, color: Colors.grey),
                     const SizedBox(height: 20),
@@ -105,11 +111,26 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
-                    const Text("Please check your connection and try again."),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 40),
+                      child: Text(
+                        "Please check your connection and try again.",
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                     const SizedBox(height: 30),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006400)),
-                      onPressed: () => webViewController?.reload(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF006400),
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          showNoInternetScreen = false;
+                          isInitialLoading = true;
+                        });
+                        webViewController?.reload();
+                      },
                       child: const Text("Retry", style: TextStyle(color: Colors.white)),
                     ),
                   ],
