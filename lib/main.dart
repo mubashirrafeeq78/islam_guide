@@ -7,13 +7,17 @@ import 'package:url_launcher/url_launcher.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // لوکیشن ختم کر کے صرف میڈیا، مائیک اور کیمرہ پرمیشن رکھی گئی ہے
+  // سیکیورٹی کے لیے ایپ کھلتے ہی کوکیز اور ویب اسٹوریج صاف کرنا
+  await WebViewCookieManager().deleteAllCookies();
+  await InAppWebStorageManager.instance().deleteAllStorage();
+
+  // پرمیشنز کی درخواست
   await [
     Permission.microphone,
     Permission.camera,
-    Permission.photos, // گیلری سے تصاویر کے لیے
-    Permission.videos, // گیلری سے ویڈیوز کے لیے
-    Permission.storage, // پرانے اینڈرائیڈ ورژنز کے لیے
+    Permission.photos,
+    Permission.videos,
+    Permission.storage,
   ].request();
   
   runApp(const MaterialApp(
@@ -69,14 +73,19 @@ class _WebViewAppState extends State<WebViewApp> {
           child: Stack(
             children: [
               InAppWebView(
-                initialUrlRequest: URLRequest(
-                  url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
-                ),
+                initialUrlRequest: https               url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"),
+             https
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
-                  geolocationEnabled: false, // لوکیشن یہاں سے بند کر دی گئی ہے
+                  geolocationEnabled: false,
                   domStorageEnabled: true,
                   databaseEnabled: true,
+                  
+                  // --- سیکیورٹی اپڈیٹس یہاں ہیں ---
+                  clearCache: true, // ایپ کھلتے ہی کیشے صاف کرے گی
+                  cacheEnabled: false, // سیکیورٹی کے لیے کیشے کو ڈس ایبل کرنا بہتر ہے
+                  // ------------------------------
+
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
