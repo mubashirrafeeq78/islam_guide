@@ -7,11 +7,15 @@ import 'package:url_launcher/url_launcher.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // سیکیورٹی کے لیے ایپ کھلتے ہی کوکیز اور ویب اسٹوریج صاف کرنا
-  await WebViewCookieManager().deleteAllCookies();
-  await InAppWebStorageManager.instance().deleteAllStorage();
+  // v6 کے مطابق کوکیز اور اسٹوریج صاف کرنے کا درست طریقہ
+  try {
+    await CookieManager.instance().deleteAllCookies();
+    await WebStorageManager.instance().deleteAllStorage();
+  } catch (e) {
+    debugPrint("Cleanup error: $e");
+  }
 
-  // پرمیشنز کی درخواست
+  // پرمیشنز
   await [
     Permission.microphone,
     Permission.camera,
@@ -73,19 +77,15 @@ class _WebViewAppState extends State<WebViewApp> {
           child: Stack(
             children: [
               InAppWebView(
-                initialUrlRequest: https               url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"),
-             https
+                initialUrlRequest: URLRequest(
+                  url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
+                ),
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
                   geolocationEnabled: false,
                   domStorageEnabled: true,
                   databaseEnabled: true,
-                  
-                  // --- سیکیورٹی اپڈیٹس یہاں ہیں ---
-                  clearCache: true, // ایپ کھلتے ہی کیشے صاف کرے گی
-                  cacheEnabled: false, // سیکیورٹی کے لیے کیشے کو ڈس ایبل کرنا بہتر ہے
-                  // ------------------------------
-
+                  clearCache: true, // اوپن ہوتے ہی کیشے صاف
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
