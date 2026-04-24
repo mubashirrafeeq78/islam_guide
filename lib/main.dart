@@ -7,10 +7,12 @@ import 'package:url_launcher/url_launcher.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // v6 کے مطابق کوکیز اور اسٹوریج صاف کرنے کا درست طریقہ
+  // ایپ لوڈ ہونے سے پہلے مکمل ڈیٹا اور کوکیز کی صفائی
   try {
     await CookieManager.instance().deleteAllCookies();
-    await WebStorageManager.instance().deleteAllStorage();
+    // v6 میں اینڈرائیڈ کے لیے تمام ڈیٹا صاف کرنے کا طریقہ
+    final webStorageManager = WebStorageManager.instance();
+    await webStorageManager.android.deleteAllData(); 
   } catch (e) {
     debugPrint("Cleanup error: $e");
   }
@@ -85,7 +87,8 @@ class _WebViewAppState extends State<WebViewApp> {
                   geolocationEnabled: false,
                   domStorageEnabled: true,
                   databaseEnabled: true,
-                  clearCache: true, // اوپن ہوتے ہی کیشے صاف
+                  clearCache: true, // اوپن ہوتے ہی کیشے صاف کرنے کا حکم
+                  cacheEnabled: false, // سیکیورٹی کے لیے کیشے کو ڈس ایبل رکھا گیا ہے
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
