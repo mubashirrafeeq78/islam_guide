@@ -1,45 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await [Permission.camera, Permission.microphone, Permission.storage].request();
+  
+  // لوکیشن ختم کر کے صرف میڈیا، مائیک اور کیمرہ پرمیشن رکھی گئی ہے
+  await [
+    Permission.microphone,
+    Permission.camera,
+    Permission.photos, // گیلری سے تصاویر کے لیے
+    Permission.videos, // گیلری سے ویڈیوز کے لیے
+    Permission.storage, // پرانے اینڈرائیڈ ورژنز کے لیے
+  ].request();
+  
   runApp(const MaterialApp(
-    home: NoorAppHome(),
     debugShowCheckedModeBanner: false,
+    home: WebViewApp(),
   ));
 }
 
-class NoorAppHome extends StatefulWidget {
-  const NoorAppHome({super.key});
-
+class WebViewApp extends StatefulWidget {
+  const WebViewApp({super.key});
   @override
-  State<NoorAppHome> createState() => _NoorAppHomeState();
+  State<WebViewApp> createState() => _WebViewAppState();
 }
 
-class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
+class _WebViewAppState extends State<WebViewApp> {
   InAppWebViewController? webViewController;
-  bool isInitialLoading = true;
-  bool showNoInternetScreen = false; 
-  final String _appUrl = "https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php";
+  bool isError = false;
+  bool isLoading = true;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      webViewController?.reload();
+  Future<void> _openWhatsAppChooser() async {
+    const String url = "https://wa.me/923140143585";
+    final Uri whatsappUri = Uri.parse(url);
+    try {
+      final bool launched = await launchUrl(
+        whatsappUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) throw 'Could not launch $url';
+    } catch (e) {
+      await launchUrl(whatsappUri, mode: LaunchMode.platformDefault);
     }
   }
 
@@ -48,95 +52,103 @@ class _NoorAppHomeState extends State<NoorAppHome> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Stack(
-          children: [
-            InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri(_appUrl)),
-              initialSettings: InAppWebViewSettings(
-                javaScriptEnabled: true,
-                cacheEnabled: true,
-                domStorageEnabled: true,
-                useOnRenderProcessGone: true,
-                disableDefaultErrorPage: true, // سسٹم کا ایرر پیج بلاک
-              ),
-              onWebViewCreated: (controller) => webViewController = controller,
-              
-              onLoadStart: (controller, url) {
-                // لوڈنگ شروع ہوتے ہی ایرر اسکرین ہٹا دیں
-                if (showNoInternetScreen) {
-                  setState(() => showNoInternetScreen = false);
-                }
-              },
-              
-              onLoadStop: (controller, url) {
-                setState(() {
-                  isInitialLoading = false;
-                  showNoInternetScreen = false;
-                });
-              },
-
-              onReceivedError: (controller, request, error) {
-                // اگر مین پیج لوڈ نہ ہو سکے تو کسٹم اسکرین دکھائیں
-                if (request.isForMainFrame ?? false) {
-                  setState(() {
-                    isInitialLoading = false;
-                    showNoInternetScreen = true; 
-                  });
-                }
-              },
-            ),
-            
-            // 1. پہلی بار اوپننگ لوڈنگ (صرف اسٹارٹ میں)
-            if (isInitialLoading)
-              Container(
-                color: Colors.white,
-                child: const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF006400)),
+        child: WillPopScope(
+          onWillPop: () async {
+            if (isError) {
+              SystemNavigator.pop();
+              return false;
+            }
+            if (webViewController != null && await webViewController!.canGoBack()) {
+              webViewController!.goBack();
+              return false;
+            } else {
+              SystemNavigator.pop();
+              return false;
+            }
+          },
+          child: Stack(
+            children: [
+              InAppWebView(
+                initialUrlRequest: URLRequest(
+                  url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
                 ),
-              ),
-
-            // 2. کسٹم "No Internet" اسکرین (ڈومین کو چھپانے کے لیے)
-            if (showNoInternetScreen)
-              Container(
-                color: Colors.white,
-                width: double.infinity,
-                height: double.infinity,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center, // یہاں غلطی ٹھیک کر دی گئی ہے
-                  children: [
-                    const Icon(Icons.wifi_off, size: 80, color: Colors.grey),
-                    const SizedBox(height: 20),
-                    const Text(
-                      "No Internet Connection",
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 40),
-                      child: Text(
-                        "Please check your connection and try again.",
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF006400),
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          showNoInternetScreen = false;
-                          isInitialLoading = true;
-                        });
-                        webViewController?.reload();
-                      },
-                      child: const Text("Retry", style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  geolocationEnabled: false, // لوکیشن یہاں سے بند کر دی گئی ہے
+                  domStorageEnabled: true,
+                  databaseEnabled: true,
+                  allowFileAccessFromFileURLs: true,
+                  allowUniversalAccessFromFileURLs: true,
+                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
+                  useOnDownloadStart: true, 
+                  mediaPlaybackRequiresUserGesture: false,
                 ),
+                onWebViewCreated: (c) => webViewController = c,
+                
+                onPermissionRequest: (controller, request) async {
+                  return PermissionResponse(
+                    resources: request.resources,
+                    action: PermissionResponseAction.GRANT,
+                  );
+                },
+
+                onDownloadStartRequest: (controller, downloadRequest) async {
+                  final url = downloadRequest.url;
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+
+                onLoadStart: (c, u) {
+                  if (u.toString() != "about:blank") {
+                    setState(() { isLoading = true; isError = false; });
+                  }
+                },
+                onLoadStop: (c, u) => setState(() { isLoading = false; }),
+                onReceivedError: (c, r, e) {
+                  c.stopLoading();
+                  c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
+                  setState(() { isError = true; isLoading = false; });
+                },
               ),
-          ],
+              
+              if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
+
+              if (isError)
+                Container(
+                  color: const Color(0xFFF1F4F8),
+                  width: double.infinity,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("LOADING ERROR", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
+                      const SizedBox(height: 50),
+                      const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey),
+                      const SizedBox(height: 30),
+                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                      const SizedBox(height: 20),
+                      InkWell(
+                        onTap: _openWhatsAppChooser,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
+                          child: const Text("00923140143585", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+                        ),
+                      ),
+                      const SizedBox(height: 60),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
+                        onPressed: () {
+                          setState(() => isError = false);
+                          webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
+                        },
+                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
