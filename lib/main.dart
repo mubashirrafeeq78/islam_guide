@@ -9,9 +9,7 @@ void main() async {
   
   // ایپ لوڈ ہونے سے پہلے ہر قسم کا ڈیٹا، کیشے اور کوکیز صاف کرنا
   try {
-    // یہ سب سے طاقتور کمانڈ ہے جو تمام ڈیٹا صاف کرتی ہے
     await InAppWebViewController.clearAllCache(); 
-    
     await CookieManager.instance().deleteAllCookies();
     final webStorageManager = WebStorageManager.instance();
     await webStorageManager.android.deleteAllData(); 
@@ -45,31 +43,15 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
-  Future<void> _openWhatsAppChooser() async {
-    const String url = "https://wa.me/923140143585";
-    final Uri whatsappUri = Uri.parse(url);
-    try {
-      final bool launched = await launchUrl(
-        whatsappUri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched) throw 'Could not launch $url';
-    } catch (e) {
-      await launchUrl(whatsappUri, mode: LaunchMode.platformDefault);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        // یہاں ہم نے سنگل کلک ایگزٹ کے لیے لاجک تبدیل کر دیا ہے
         child: PopScope(
           canPop: false, 
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
-            // سنگل کلک پر ایپ بند کرنے کے لیے
             SystemNavigator.pop();
           },
           child: Stack(
@@ -83,8 +65,8 @@ class _WebViewAppState extends State<WebViewApp> {
                   geolocationEnabled: false,
                   domStorageEnabled: true,
                   databaseEnabled: true,
-                  clearCache: true, // ہر بار اوپننگ پر کیشے صاف
-                  cacheEnabled: false, // سیکیورٹی کے لیے کیشے آف
+                  clearCache: true, 
+                  cacheEnabled: false,
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
@@ -129,28 +111,33 @@ class _WebViewAppState extends State<WebViewApp> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("LOADING ERROR", style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.red)),
-                      const SizedBox(height: 50),
-                      const Icon(Icons.support_agent, size: 100, color: Colors.blueGrey),
-                      const SizedBox(height: 30),
-                      const Text("HELP SUPPORT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                      const Icon(Icons.error_outline, size: 80, color: Colors.redAccent),
                       const SizedBox(height: 20),
-                      InkWell(
-                        onTap: _openWhatsAppChooser,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
-                          child: const Text("00923140143585", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-                        ),
+                      const Text(
+                        "LOADING ERROR", 
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black54)
                       ),
-                      const SizedBox(height: 60),
+                      const SizedBox(height: 10),
+                      const Text(
+                        "Please check your internet connection.", 
+                        style: TextStyle(color: Colors.grey)
+                      ),
+                      const SizedBox(height: 40),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueGrey,
+                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        ),
                         onPressed: () {
-                          setState(() => isError = false);
-                          webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php")));
+                          setState(() {
+                            isError = false;
+                            isLoading = true;
+                          });
+                          webViewController?.loadUrl(
+                            urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"))
+                          );
                         },
-                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white)),
+                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
