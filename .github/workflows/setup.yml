@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # یہاں ہم نے Node.js 24 کو زبردستی نافذ کر دیا ہے تاکہ مستقبل کی وارننگ ختم ہو جائے
+    # Node.js 24 کی وارننگ ختم کرنے کے لیے
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       
@@ -19,8 +19,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          # تازہ ترین فلٹر ورژن کا استعمال تاکہ نئے اینڈرائیڈ ورژن سپورٹ ہوں
-          flutter-version: '3.22.0' 
+          # یہاں ہم نے ورژن 3.24.0 رکھا ہے تاکہ پیکجز کا ایرر ختم ہو
+          flutter-version: '3.24.0' 
       
       - name: Clean & Get Packages
         run: |
@@ -31,11 +31,12 @@ jobs:
         run: flutter pub run flutter_launcher_icons
 
       - name: Build Optimized APK
-        # ہم نے یہاں ہدف (Target) اینڈرائیڈ ورژن کو بھی مدنظر رکھا ہے
+        # تمام جدید اور پرانی ڈیوائسز کی سپورٹ کے لیے
         run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Islam-Guide-Final
+          # یہ راستہ (path) اب تمام جنریٹڈ APKs کو اٹھا لے گا
           path: build/app/outputs/flutter-apk/*.apk
