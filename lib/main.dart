@@ -1,21 +1,27 @@
-import 'package:flutter/material.dart';
+      import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // ایپ لوڈ ہونے سے پہلے ہر قسم کا ڈیٹا، کیشے اور کوکیز صاف کرنا
+// صفائی کے لیے ایک مشترکہ فنکشن تاکہ کوڈ بار بار نہ لکھنا پڑے
+Future<void> clearAllAppUserData() async {
   try {
     await InAppWebViewController.clearAllCache(); 
     await CookieManager.instance().deleteAllCookies();
     final webStorageManager = WebStorageManager.instance();
-    await webStorageManager.android.deleteAllData(); 
+    await webStorageManager.android.deleteAllData();
+    debugPrint("All data cleared successfully.");
   } catch (e) {
     debugPrint("Cleanup error: $e");
   }
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 1. ایپ لوڈ ہونے سے پہلے صفائی
+  await clearAllAppUserData();
 
   // پرمیشنز
   await [
@@ -50,8 +56,13 @@ class _WebViewAppState extends State<WebViewApp> {
       body: SafeArea(
         child: PopScope(
           canPop: false, 
-          onPopInvokedWithResult: (didPop, result) {
+          onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
+
+            // 2. بیک بٹن دبانے پر ایپ بند ہونے سے پہلے صفائی
+            await clearAllAppUserData();
+            
+            // صفائی کے بعد ایپ کو بند کرنا
             SystemNavigator.pop();
           },
           child: Stack(
@@ -114,7 +125,7 @@ class _WebViewAppState extends State<WebViewApp> {
                       const Icon(Icons.error_outline, size: 80, color: Colors.redAccent),
                       const SizedBox(height: 20),
                       const Text(
-                        "LOADING ERROR", 
+                        "No internet connection ", 
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black54)
                       ),
                       const SizedBox(height: 10),
@@ -134,7 +145,7 @@ class _WebViewAppState extends State<WebViewApp> {
                             isLoading = true;
                           });
                           webViewController?.loadUrl(
-                            urlRequest: URLRequest(url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"))
+                            urlRequest: URLRequest(url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"))
                           );
                         },
                         child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
