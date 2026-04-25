@@ -69,7 +69,7 @@ class _WebViewAppState extends State<WebViewApp> {
             children: [
               InAppWebView(
                 initialUrlRequest: URLRequest(
-                  url: WebUri("https://lightslategray-pheasant-815893.hostingersite.com/dashboard.php"),
+                  url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"),
                 ),
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
