@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io'; // نیٹ ورک چیک کرنے کے لیے
 
-// صفائی کے لیے ایک مشترکہ فنکشن تاکہ کوڈ بار بار نہ لکھنا پڑے
 Future<void> clearAllAppUserData() async {
   try {
     await InAppWebViewController.clearAllCache(); 
@@ -19,11 +19,8 @@ Future<void> clearAllAppUserData() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 1. ایپ لوڈ ہونے سے پہلے صفائی
   await clearAllAppUserData();
 
-  // پرمیشنز
   await [
     Permission.microphone,
     Permission.camera,
@@ -49,6 +46,16 @@ class _WebViewAppState extends State<WebViewApp> {
   bool isError = false;
   bool isLoading = true;
 
+  // انٹرنیٹ کا مکمل خاتمہ چیک کرنے کا فنکشن
+  Future<bool> isReallyOffline() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      return result.isEmpty || result[0].rawAddress.isEmpty;
+    } on SocketException catch (_) {
+      return true; // مکمل طور پر آف لائن ہے
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,11 +65,7 @@ class _WebViewAppState extends State<WebViewApp> {
           canPop: false, 
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
-
-            // 2. بیک بٹن دبانے پر ایپ بند ہونے سے پہلے صفائی
             await clearAllAppUserData();
-            
-            // صفائی کے بعد ایپ کو بند کرنا
             SystemNavigator.pop();
           },
           child: Stack(
@@ -73,11 +76,10 @@ class _WebViewAppState extends State<WebViewApp> {
                 ),
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
-                  geolocationEnabled: false,
                   domStorageEnabled: true,
                   databaseEnabled: true,
-                  clearCache: true, 
-                  cacheEnabled: false,
+                  clearCache: false, // کیشے ختم نہیں کریں گے تاکہ سلو نیٹ پر ایپ چلتی رہے
+                  cacheEnabled: true,
                   allowFileAccessFromFileURLs: true,
                   allowUniversalAccessFromFileURLs: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
@@ -93,23 +95,26 @@ class _WebViewAppState extends State<WebViewApp> {
                   );
                 },
 
-                onDownloadStartRequest: (controller, downloadRequest) async {
-                  final url = downloadRequest.url;
-                  if (await canLaunchUrl(url)) {
-                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                  }
-                },
-
                 onLoadStart: (c, u) {
                   if (u.toString() != "about:blank") {
-                    setState(() { isLoading = true; isError = false; });
+                    setState(() { isLoading = true; });
                   }
                 },
                 onLoadStop: (c, u) => setState(() { isLoading = false; }),
-                onReceivedError: (c, r, e) {
-                  c.stopLoading();
-                  c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
-                  setState(() { isError = true; isLoading = false; });
+                
+                onReceivedError: (c, r, e) async {
+                  // جب کوئی ایرر آئے تو پہلے چیک کریں کہ کیا واقعی انٹرنیٹ بند ہے؟
+                  bool offline = await isReallyOffline();
+                  
+                  if (offline) {
+                    // صرف تب ایرر دکھائیں جب انٹرنیٹ بالکل نہ ہو
+                    c.stopLoading();
+                    c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
+                    setState(() { isError = true; isLoading = false; });
+                  } else {
+                    // اگر انٹرنیٹ سلو ہے یا کوئی اور چھوٹا مسئلہ ہے تو ایپ کو چلنے دیں، ایرر نہ دکھائیں
+                    debugPrint("Slow internet or minor error, keeping the app alive.");
+                  }
                 },
               ),
               
@@ -122,33 +127,26 @@ class _WebViewAppState extends State<WebViewApp> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 80, color: Colors.redAccent),
+                      const Icon(Icons.wifi_off, size: 80, color: Colors.redAccent),
                       const SizedBox(height: 20),
                       const Text(
-                        "No internet connection ", 
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black54)
+                        "No Internet Connection", 
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)
                       ),
                       const SizedBox(height: 10),
-                      const Text(
-                        "Please check your internet connection.", 
-                        style: TextStyle(color: Colors.grey)
-                      ),
+                      const Text("Please check your data or Wi-Fi."),
                       const SizedBox(height: 40),
                       ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueGrey,
-                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            isError = false;
-                            isLoading = true;
-                          });
-                          webViewController?.loadUrl(
-                            urlRequest: URLRequest(url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"))
-                          );
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
+                        onPressed: () async {
+                          if (!(await isReallyOffline())) {
+                            setState(() { isError = false; isLoading = true; });
+                            webViewController?.loadUrl(
+                              urlRequest: URLRequest(url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"))
+                            );
+                          }
                         },
-                        child: const Text("TRY AGAIN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: const Text("Try Again", style: TextStyle(color: Colors.white)),
                       ),
                     ],
                   ),
