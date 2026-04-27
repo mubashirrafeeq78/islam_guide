@@ -4,6 +4,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
+import 'dart:async';
 
 Future<void> clearAllAppUserData() async {
   try {
@@ -20,19 +21,8 @@ Future<void> clearAllAppUserData() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await clearAllAppUserData();
-
-  await [
-    Permission.microphone,
-    Permission.camera,
-    Permission.photos,
-    Permission.videos,
-    Permission.storage,
-  ].request();
-  
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: WebViewApp(),
-  ));
+  await [Permission.microphone, Permission.camera, Permission.photos, Permission.videos, Permission.storage].request();
+  runApp(const MaterialApp(debugShowCheckedModeBanner: false, home: WebViewApp()));
 }
 
 class WebViewApp extends StatefulWidget {
@@ -41,18 +31,55 @@ class WebViewApp extends StatefulWidget {
   State<WebViewApp> createState() => _WebViewAppState();
 }
 
-class _WebViewAppState extends State<WebViewApp> {
+class _WebViewAppState extends State<WebViewApp> with SingleTickerProviderStateMixin {
   InAppWebViewController? webViewController;
   bool isError = false;
   bool isLoading = true;
+  bool showBlinkingText = false;
+  Timer? offlineTimer;
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    offlineTimer?.cancel();
+    super.dispose();
+  }
 
   Future<bool> isReallyOffline() async {
     try {
-      final result = await InternetAddress.lookup('google.com');
+      final result = await InternetAddress.lookup('google.com').timeout(const Duration(seconds: 3));
       return result.isEmpty || result[0].rawAddress.isEmpty;
-    } on SocketException catch (_) {
+    } catch (_) {
       return true;
     }
+  }
+
+  void startOfflineTimer() {
+    if (offlineTimer == null || !offlineTimer!.isActive) {
+      setState(() { showBlinkingText = true; });
+      offlineTimer = Timer(const Duration(minutes: 2), () {
+        if (showBlinkingText) {
+          setState(() {
+            isError = true;
+            showBlinkingText = false;
+            isLoading = false;
+          });
+        }
+      });
+    }
+  }
+
+  void resetOfflineStatus() {
+    offlineTimer?.cancel();
+    offlineTimer = null;
+    setState(() { showBlinkingText = false; isError = false; });
   }
 
   @override
@@ -61,7 +88,7 @@ class _WebViewAppState extends State<WebViewApp> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: PopScope(
-          canPop: false, 
+          canPop: false,
           onPopInvokedWithResult: (didPop, result) async {
             if (didPop) return;
             await clearAllAppUserData();
@@ -70,90 +97,78 @@ class _WebViewAppState extends State<WebViewApp> {
           child: Stack(
             children: [
               InAppWebView(
-                initialUrlRequest: URLRequest(
-                  url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"),
-                ),
+                initialUrlRequest: URLRequest(url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php")),
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
                   domStorageEnabled: true,
                   databaseEnabled: true,
-                  clearCache: false, 
                   cacheEnabled: true,
-                  allowFileAccessFromFileURLs: true,
-                  allowUniversalAccessFromFileURLs: true,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                  useOnDownloadStart: true, 
-                  mediaPlaybackRequiresUserGesture: false,
-                  // اضافی سیفٹی: اگر پیج لوڈ ہونے میں بہت دیر لگے تو اسے روک دے
-                  useShouldInterceptRequest: true,
+                  useShouldOverrideUrlLoading: true,
+                  transparentBackground: true,
                 ),
                 onWebViewCreated: (c) => webViewController = c,
-                
-                onPermissionRequest: (controller, request) async {
-                  return PermissionResponse(
-                    resources: request.resources,
-                    action: PermissionResponseAction.GRANT,
-                  );
+                onLoadStart: (c, u) => setState(() { isLoading = true; }),
+                onLoadStop: (c, u) {
+                  setState(() { isLoading = false; });
+                  resetOfflineStatus();
                 },
-
-                onLoadStart: (c, u) {
-                  if (u.toString() != "about:blank") {
-                    setState(() { isLoading = true; isError = false; });
+                onReceivedError: (c, r, e) async {
+                  // یہ لائن اینڈرائیڈ کا ڈیفالٹ ایرر پیج چھپانے کے لیے اہم ہے
+                  if (e.description.contains("net::ERR")) {
+                    c.loadData(data: "<html><body style='background-color:white;'></body></html>"); 
+                  }
+                  
+                  bool offline = await isReallyOffline();
+                  if (offline) {
+                    startOfflineTimer();
                   }
                 },
-                onLoadStop: (c, u) => setState(() { isLoading = false; }),
-
-                // یہ وہ حصہ ہے جو اسکرین شاٹ والے ایرر پیج کو روکے گا
-                onReceivedError: (c, r, e) async {
-                  // 1. فوراً لوڈنگ روکیں تاکہ ڈیفالٹ ایرر پیج نہ بن پائے
-                  await c.stopLoading();
-                  // 2. فوراً خالی صفحہ لوڈ کریں تاکہ ڈومین چھپ جائے
-                  await c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
-                  
-                  // اب تسلی سے چیک کریں کہ آف لائن ہے یا صرف سلو ہے
-                  bool offline = await isReallyOffline();
-                  
-                  setState(() {
-                    isLoading = false;
-                    // اگر واقعی آف لائن ہے تو ہماری کسٹم ایرر اسکرین دکھائیں
-                    // اگر صرف سلو تھا، تب بھی ہم نے ڈومین چھپا دیا ہے، یوزر دوبارہ کوشش کر سکتا ہے
-                    isError = true; 
-                  });
-                },
-                
-                // HTTP ایررز (جیسے 404 یا 500) کے لیے بھی یہی لاجک
                 onReceivedHttpError: (c, r, e) async {
-                  await c.stopLoading();
-                  await c.loadUrl(urlRequest: URLRequest(url: WebUri("about:blank")));
-                  setState(() { isError = true; isLoading = false; });
+                  if (await isReallyOffline()) startOfflineTimer();
                 },
               ),
               
-              if (isLoading) const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
+              if (isLoading && !showBlinkingText && !isError) 
+                const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
 
+              // 2 منٹ والا بلنکنگ نوٹیفکیشن
+              if (showBlinkingText)
+                Positioned(
+                  top: 20,
+                  left: 20,
+                  right: 20,
+                  child: FadeTransition(
+                    opacity: _animationController,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15),
+                      decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(20)),
+                      child: const Text(
+                        "انٹرنیٹ کنکشن منقطع ہے، دوبارہ کوشش جاری ہے...",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // آپ کی کسٹم ڈیزائن کردہ ایرر اسکرین (2 منٹ بعد)
               if (isError)
                 Container(
                   color: const Color(0xFFF1F4F8),
-                  width: double.infinity,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.wifi_off, size: 80, color: Colors.redAccent),
+                      const Center(child: Icon(Icons.wifi_off, size: 80, color: Colors.redAccent)),
                       const SizedBox(height: 20),
-                      const Text(
-                        "کنکشن کا مسئلہ", 
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)
-                      ),
-                      const SizedBox(height: 10),
-                      const Text("انٹرنیٹ سلو ہے یا بند ہے۔ براہ کرم دوبارہ کوشش کریں۔"),
+                      const Text("انٹرنیٹ دستیاب نہیں ہے", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 40),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey),
                         onPressed: () async {
-                          setState(() { isError = false; isLoading = true; });
-                          webViewController?.loadUrl(
-                            urlRequest: URLRequest(url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php"))
-                          );
+                          if (!(await isReallyOffline())) {
+                            resetOfflineStatus();
+                            webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri("https://lavenderblush-eagle-882875.hostingersite.com/dashboard.php")));
+                          }
                         },
                         child: const Text("دوبارہ کوشش کریں", style: TextStyle(color: Colors.white)),
                       ),
