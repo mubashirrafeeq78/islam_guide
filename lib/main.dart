@@ -4,14 +4,17 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
+import 'dart:io';
 
-// آپ کی کیشے کلیئر کرنے والی لاجک بالکل محفوظ ہے
 Future<void> clearAllAppUserData() async {
   try {
     await InAppWebViewController.clearAllCache(); 
     await CookieManager.instance().deleteAllCookies();
     final webStorageManager = WebStorageManager.instance();
-    await webStorageManager.android.deleteAllData();
+    if (Platform.isAndroid) {
+      await webStorageManager.android.deleteAllData();
+    }
+    debugPrint("Cleanup complete.");
   } catch (e) {
     debugPrint("Cleanup error: $e");
   }
@@ -34,7 +37,7 @@ class _WebViewAppState extends State<WebViewApp> with SingleTickerProviderStateM
   InAppWebViewController? webViewController;
   bool isError = false;
   bool isLoading = true;
-  bool isOffline = false; // انٹرنیٹ کٹ جانے کی نشانی
+  bool isOffline = false; 
   Timer? twoMinuteTimer;
   late AnimationController _blinkController;
 
@@ -51,13 +54,12 @@ class _WebViewAppState extends State<WebViewApp> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  // جب انٹرنیٹ کٹ جائے تو یہ فنکشن کال ہوگا
   void handleOfflineStatus() {
     if (twoMinuteTimer == null || !twoMinuteTimer!.isActive) {
       setState(() { isOffline = true; });
       twoMinuteTimer = Timer(const Duration(minutes: 2), () {
         if (isOffline) {
-          setState(() { isError = true; isOffline = false; });
+          setState(() { isError = true; isOffline = false; isLoading = false; });
         }
       });
     }
@@ -83,43 +85,37 @@ class _WebViewAppState extends State<WebViewApp> with SingleTickerProviderStateM
                   javaScriptEnabled: true,
                   domStorageEnabled: true,
                   cacheEnabled: true,
-                  // اینڈرائیڈ کے ایرر پیج کو روکنے کے لیے سب سے اہم سیٹنگ
                   useOnRenderProcessGone: true,
+                  // خودکار ایرر پیج کو روکنے کے لیے
+                  disableDefaultErrorPage: true, 
                 ),
                 onWebViewCreated: (c) => webViewController = c,
                 onLoadStart: (c, u) => setState(() { isLoading = true; }),
                 onLoadStop: (c, u) {
                   setState(() { isLoading = false; isOffline = false; isError = false; });
                   twoMinuteTimer?.cancel();
+                  twoMinuteTimer = null;
                 },
                 onReceivedError: (c, r, e) {
-                  // اگر انٹرنیٹ کا مسئلہ ہو (ERR_INTERNET_DISCONNECTED یا NAME_NOT_RESOLVED)
-                  if (e.type == WebResourceErrorType.CANNOT_CONNECT || 
-                      e.type == WebResourceErrorType.HOST_LOOKUP_NOT_FOUND ||
-                      e.type == WebResourceErrorType.NOT_CONNECTED) {
-                    
-                    // اینڈرائیڈ کا ایرر پیج چھپانے کے لیے خالی ڈیٹا لوڈ کریں
+                  // تمام نیٹ ورک ایررز کے کوڈز کو ہینڈل کرنا (جیسے -2, -6, -8)
+                  if (e.code == -2 || e.code == -6 || e.code == -8 || e.code == -106) {
                     c.loadData(data: "<html><body style='background:white;'></body></html>");
                     handleOfflineStatus();
                   }
                 },
               ),
               
-              // 1. مین لوڈنگ اسپنر (صرف پہلی بار یا ریفریش پر)
               if (isLoading && !isOffline && !isError)
                 const Center(child: CircularProgressIndicator(color: Colors.blueGrey)),
 
-              // 2. بلنکنگ نوٹیفکیشن (2 منٹ تک)
               if (isOffline && !isError)
                 Positioned(
-                  top: 50,
-                  left: 20,
-                  right: 20,
+                  top: 50, left: 20, right: 20,
                   child: FadeTransition(
                     opacity: _blinkController,
                     child: Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.red.withOpacity(0.8), borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(color: Colors.red.withOpacity(0.9), borderRadius: BorderRadius.circular(10)),
                       child: const Text(
                         "کنکشن منقطع ہے، دوبارہ کوشش جاری ہے...",
                         textAlign: TextAlign.center,
@@ -129,14 +125,14 @@ class _WebViewAppState extends State<WebViewApp> with SingleTickerProviderStateM
                   ),
                 ),
 
-              // 3. کسٹم ایرر اسکرین (2 منٹ مکمل ہونے کے بعد)
               if (isError)
                 Container(
                   color: Colors.white,
+                  width: double.infinity,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.signal_wifi_connected_no_internet_4, size: 70, color: Colors.grey),
+                      const Icon(Icons.signal_wifi_off, size: 70, color: Colors.grey),
                       const SizedBox(height: 20),
                       const Text("انٹرنیٹ دستیاب نہیں ہے", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 30),
